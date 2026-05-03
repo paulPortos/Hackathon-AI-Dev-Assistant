@@ -9,6 +9,8 @@
 *.env
 server/.env
 server/.env.*
+server/secrets/
+secrets/
 
 # Python virtual environments
 .venv/
