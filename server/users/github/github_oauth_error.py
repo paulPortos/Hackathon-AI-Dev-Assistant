@@ -1,0 +1,2 @@
+class GitHubOAuthError(Exception):
+    pass

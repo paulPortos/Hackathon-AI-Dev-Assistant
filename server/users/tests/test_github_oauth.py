@@ -48,9 +48,9 @@ class GitHubOAuthTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.json()['detail'], 'Denied')
 
-    @patch('users.views.fetch_github_emails')
-    @patch('users.views.fetch_github_user')
-    @patch('users.views.exchange_code_for_access_token')
+    @patch('users.views.github_callback_view.fetch_github_emails')
+    @patch('users.views.github_callback_view.fetch_github_user')
+    @patch('users.views.github_callback_view.exchange_code_for_access_token')
     def test_callback_creates_user_and_returns_tokens(self, exchange_code, fetch_user, fetch_emails):
         exchange_code.return_value = 'github-token'
         fetch_user.return_value = {
@@ -83,9 +83,9 @@ class GitHubOAuthTests(TestCase):
         self.assertEqual(user.email, 'octocat@example.com')
         self.assertEqual(user.access_token, 'github-token')
 
-    @patch('users.views.fetch_github_emails')
-    @patch('users.views.fetch_github_user')
-    @patch('users.views.exchange_code_for_access_token')
+    @patch('users.views.github_callback_view.fetch_github_emails')
+    @patch('users.views.github_callback_view.fetch_github_user')
+    @patch('users.views.github_callback_view.exchange_code_for_access_token')
     def test_callback_updates_existing_user(self, exchange_code, fetch_user, fetch_emails):
         User.objects.create_user(github_id='123', username='old', email='old@example.com')
         exchange_code.return_value = 'new-token'

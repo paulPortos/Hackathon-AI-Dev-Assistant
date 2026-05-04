@@ -1,37 +1,20 @@
 import secrets
 
-from django.http import HttpResponseRedirect
 from rest_framework.exceptions import AuthenticationFailed, ValidationError
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.exceptions import AuthenticationFailed as JWTAuthenticationFailed
-from rest_framework_simplejwt.tokens import RefreshToken
 
 from users.github import (
     GitHubOAuthError,
-    build_github_authorization_url,
     exchange_code_for_access_token,
     fetch_github_emails,
     fetch_github_user,
     select_email,
 )
 from users.serializers import UserSerializer
-from users.services import user_create_or_update_from_github
-
-
-GITHUB_OAUTH_STATE_SESSION_KEY = 'github_oauth_state'
-
-
-class GitHubLoginView(APIView):
-    permission_classes = [AllowAny]
-    authentication_classes = []
-
-    def get(self, request):
-        state = secrets.token_urlsafe(32)
-        request.session[GITHUB_OAUTH_STATE_SESSION_KEY] = state
-        request.session.modified = True
-        return HttpResponseRedirect(build_github_authorization_url(state=state))
+from users.services import get_tokens_for_user, user_create_or_update_from_github
+from users.views.constants import GITHUB_OAUTH_STATE_SESSION_KEY
 
 
 class GitHubCallbackView(APIView):
@@ -69,21 +52,3 @@ class GitHubCallbackView(APIView):
 
         tokens = get_tokens_for_user(user)
         return Response({'access': tokens['access'], 'refresh': tokens['refresh'], 'user': UserSerializer(user).data})
-
-
-class MeView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request, version=None):
-        return Response(UserSerializer(request.user).data)
-
-
-def get_tokens_for_user(user):
-    if not user.is_active:
-        raise JWTAuthenticationFailed('User is not active')
-
-    refresh = RefreshToken.for_user(user)
-    return {
-        'refresh': str(refresh),
-        'access': str(refresh.access_token),
-    }
