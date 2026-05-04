@@ -1,4 +1,0 @@
-from email_verifications.services.email_verification_confirm_for_user import email_verification_confirm_for_user
-from email_verifications.services.email_verification_request_for_user import email_verification_request_for_user
-
-__all__ = ['email_verification_confirm_for_user', 'email_verification_request_for_user']

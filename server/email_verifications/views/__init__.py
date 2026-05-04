@@ -1,4 +1,0 @@
-from email_verifications.views.email_verification_confirm_view import EmailVerificationConfirmView
-from email_verifications.views.email_verification_request_view import EmailVerificationRequestView
-
-__all__ = ['EmailVerificationConfirmView', 'EmailVerificationRequestView']

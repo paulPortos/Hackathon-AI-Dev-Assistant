@@ -1,6 +1,6 @@
 from django.conf import settings
 
-from email_verifications.providers.email_delivery_error import EmailDeliveryError
+from users.providers.email_delivery_error import EmailDeliveryError
 
 
 def send_email_verification_code(*, to_email, code, ttl_minutes):

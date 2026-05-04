@@ -9,11 +9,11 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from email_verifications.models import EmailVerificationCode
+from users.models import EmailVerificationCode
 from users.models import User
 
 
-request_service_module = importlib.import_module('email_verifications.services.email_verification_request_for_user')
+request_service_module = importlib.import_module('users.services.email_verification_request_for_user')
 
 
 @override_settings(

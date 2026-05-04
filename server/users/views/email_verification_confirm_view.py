@@ -4,8 +4,8 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from email_verifications.serializers import EmailVerificationConfirmSerializer
-from email_verifications.services import email_verification_confirm_for_user
+from users.serializers import EmailVerificationConfirmSerializer
+from users.services import email_verification_confirm_for_user
 from users.serializers import UserSerializer
 
 

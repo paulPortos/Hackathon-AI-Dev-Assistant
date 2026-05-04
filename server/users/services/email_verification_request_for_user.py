@@ -7,8 +7,8 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 
-from email_verifications.models import EmailVerificationCode
-from email_verifications.providers import send_email_verification_code
+from users.models import EmailVerificationCode
+from users.providers import send_email_verification_code
 
 
 @transaction.atomic

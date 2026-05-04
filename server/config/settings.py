@@ -47,7 +47,6 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'users',
     'user_descriptions',
-    'email_verifications',
 ]
 
 MIDDLEWARE = [

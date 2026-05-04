@@ -4,8 +4,8 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from email_verifications.providers import EmailDeliveryError
-from email_verifications.services import email_verification_request_for_user
+from users.providers import EmailDeliveryError
+from users.services import email_verification_request_for_user
 
 
 class EmailVerificationRequestView(APIView):

@@ -1,4 +1,4 @@
-from email_verifications.models import EmailVerificationCode
+from users.models import EmailVerificationCode
 
 
 def email_verification_code_get_for_user(user):

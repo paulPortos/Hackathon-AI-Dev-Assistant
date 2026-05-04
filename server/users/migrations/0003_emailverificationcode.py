@@ -6,10 +6,8 @@ import django.db.models.deletion
 
 
 class Migration(migrations.Migration):
-    initial = True
-
     dependencies = [
-        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+        ('users', '0002_user_email_verified_at'),
     ]
 
     operations = [

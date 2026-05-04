@@ -1,3 +1,0 @@
-from email_verifications.selectors.email_verification_code_get_for_user import email_verification_code_get_for_user
-
-__all__ = ['email_verification_code_get_for_user']

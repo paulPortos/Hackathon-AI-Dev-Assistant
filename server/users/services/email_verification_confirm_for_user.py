@@ -4,7 +4,7 @@ from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import transaction
 from django.utils import timezone
 
-from email_verifications.models import EmailVerificationCode
+from users.models import EmailVerificationCode
 
 
 def email_verification_confirm_for_user(*, user, code):

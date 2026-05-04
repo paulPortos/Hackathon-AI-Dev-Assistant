@@ -2,14 +2,14 @@ from django.contrib import admin
 from django.urls import include, path
 from rest_framework_simplejwt.views import TokenRefreshView, TokenVerifyView
 
-from users.urls import auth_urlpatterns
+from users.urls import auth_urlpatterns, email_verification_urlpatterns
 from users.views import MeView
 
 
 api_v1_patterns = [
     path('me/', MeView.as_view(), name='me'),
     path('user-descriptions/', include(('user_descriptions.urls', 'user_descriptions'), namespace='user-descriptions')),
-    path('email-verifications/', include(('email_verifications.urls', 'email_verifications'), namespace='email-verifications')),
+    path('email-verifications/', include((email_verification_urlpatterns, 'users'), namespace='email-verifications')),
     path('auth/token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
     path('auth/token/verify/', TokenVerifyView.as_view(), name='token-verify'),
 ]
