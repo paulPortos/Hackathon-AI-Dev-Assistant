@@ -1,5 +1,4 @@
-from users.serializers.email_verification_confirm_serializer import EmailVerificationConfirmSerializer
-from users.serializers.email_verification_request_serializer import EmailVerificationRequestSerializer
+from users.serializers.public_user_serializer import PublicUserSerializer
 from users.serializers.user_serializer import UserSerializer
 
-__all__ = ['EmailVerificationConfirmSerializer', 'EmailVerificationRequestSerializer', 'UserSerializer']
+__all__ = ['PublicUserSerializer', 'UserSerializer']

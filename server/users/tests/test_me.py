@@ -19,7 +19,7 @@ class MeViewTests(TestCase):
 
     def test_api_v1_me_returns_current_user(self):
         response = self.client.get(
-            reverse('users-api:me', kwargs={'version': 'v1'}),
+            reverse('api:users:current-user-detail', kwargs={'version': 'v1'}),
             HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
         )
 

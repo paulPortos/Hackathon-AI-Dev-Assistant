@@ -16,7 +16,7 @@ from users.views import GITHUB_OAUTH_STATE_SESSION_KEY
 )
 class GitHubOAuthTests(TestCase):
     def test_login_redirects_to_github_and_stores_state(self):
-        response = self.client.get(reverse('auth:github-login'))
+        response = self.client.get(reverse('auth:github-oauth-login'))
 
         self.assertEqual(response.status_code, status.HTTP_302_FOUND)
         parsed = urlparse(response['Location'])
@@ -30,7 +30,7 @@ class GitHubOAuthTests(TestCase):
         self.assertEqual(query['state'], [session[GITHUB_OAUTH_STATE_SESSION_KEY]])
 
     def test_callback_requires_valid_state(self):
-        response = self.client.get(reverse('auth:github-callback'), {'code': 'code', 'state': 'bad'})
+        response = self.client.get(reverse('auth:github-oauth-callback'), {'code': 'code', 'state': 'bad'})
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual(response.json()['detail'], 'Invalid GitHub OAuth state')
@@ -41,7 +41,7 @@ class GitHubOAuthTests(TestCase):
         session.save()
 
         response = self.client.get(
-            reverse('auth:github-callback'),
+            reverse('auth:github-oauth-callback'),
             {'error': 'access_denied', 'error_description': 'Denied', 'state': 'state'},
         )
 
@@ -68,7 +68,7 @@ class GitHubOAuthTests(TestCase):
         session[GITHUB_OAUTH_STATE_SESSION_KEY] = 'state'
         session.save()
 
-        response = self.client.get(reverse('auth:github-callback'), {'code': 'code', 'state': 'state'})
+        response = self.client.get(reverse('auth:github-oauth-callback'), {'code': 'code', 'state': 'state'})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         payload = response.json()
@@ -101,7 +101,7 @@ class GitHubOAuthTests(TestCase):
         session[GITHUB_OAUTH_STATE_SESSION_KEY] = 'state'
         session.save()
 
-        response = self.client.get(reverse('auth:github-callback'), {'code': 'code', 'state': 'state'})
+        response = self.client.get(reverse('auth:github-oauth-callback'), {'code': 'code', 'state': 'state'})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         user = User.objects.get(github_id='123')

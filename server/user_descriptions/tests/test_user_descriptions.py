@@ -21,7 +21,7 @@ class UserDescriptionTests(TestCase):
 
     def test_get_me_returns_404_when_description_missing(self):
         response = self.client.get(
-            reverse('user-descriptions-api:user-description-me', kwargs={'version': 'v1'}),
+            reverse('api:user-descriptions:current-user-description-detail', kwargs={'version': 'v1'}),
             HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
         )
 
@@ -29,7 +29,7 @@ class UserDescriptionTests(TestCase):
 
     def test_patch_me_creates_description(self):
         response = self.client.patch(
-            reverse('user-descriptions-api:user-description-me', kwargs={'version': 'v1'}),
+            reverse('api:user-descriptions:current-user-description-detail', kwargs={'version': 'v1'}),
             {
                 'primary_role': 'backend',
                 'experience_level': 'mid',
@@ -55,7 +55,7 @@ class UserDescriptionTests(TestCase):
         UserDescription.objects.create(user=self.user, primary_role='frontend', summary='Old')
 
         response = self.client.patch(
-            reverse('user-descriptions-api:user-description-me', kwargs={'version': 'v1'}),
+            reverse('api:user-descriptions:current-user-description-detail', kwargs={'version': 'v1'}),
             {'primary_role': 'fullstack', 'summary': 'Now handles frontend and backend.'},
             content_type='application/json',
             HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
@@ -69,7 +69,7 @@ class UserDescriptionTests(TestCase):
 
     def test_patch_me_validates_skills(self):
         response = self.client.patch(
-            reverse('user-descriptions-api:user-description-me', kwargs={'version': 'v1'}),
+            reverse('api:user-descriptions:current-user-description-detail', kwargs={'version': 'v1'}),
             {'skills': [{'name': 'Django', 'level': 6}]},
             content_type='application/json',
             HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
@@ -82,7 +82,7 @@ class UserDescriptionTests(TestCase):
         UserDescription.objects.create(user=self.user, primary_role='backend')
 
         response = self.client.get(
-            reverse('user-descriptions-api:user-description-list', kwargs={'version': 'v1'}),
+            reverse('api:user-descriptions:user-description-list', kwargs={'version': 'v1'}),
             HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
         )
 
@@ -97,7 +97,7 @@ class UserDescriptionTests(TestCase):
 
         response = self.client.get(
             reverse(
-                'user-descriptions-api:user-description-detail',
+                'api:user-descriptions:user-description-detail',
                 kwargs={'version': 'v1', 'pk': user_description.id},
             ),
             HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
@@ -105,6 +105,28 @@ class UserDescriptionTests(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.json()['id'], user_description.id)
+
+    def test_user_description_by_user_returns_description(self):
+        other_user = User.objects.create_user(
+            github_id='456',
+            username='frontend-dev',
+            name='Frontend Dev',
+            email='frontend@example.com',
+        )
+        user_description = UserDescription.objects.create(user=other_user, primary_role='frontend')
+
+        response = self.client.get(
+            reverse(
+                'api:user-descriptions:user-description-for-user',
+                kwargs={'version': 'v1', 'user_id': other_user.id},
+            ),
+            HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        payload = response.json()
+        self.assertEqual(payload['id'], user_description.id)
+        self.assertEqual(payload['user_id'], other_user.id)
 
     def test_agent_context_selector_returns_compact_context(self):
         user_description = UserDescription.objects.create(
