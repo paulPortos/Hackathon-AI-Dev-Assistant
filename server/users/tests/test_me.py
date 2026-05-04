@@ -19,7 +19,7 @@ class MeViewTests(TestCase):
 
     def test_api_v1_me_returns_current_user(self):
         response = self.client.get(
-            reverse('api-v1:me', kwargs={'version': 'v1'}),
+            reverse('users-api:me', kwargs={'version': 'v1'}),
             HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
         )
 
@@ -29,11 +29,10 @@ class MeViewTests(TestCase):
         self.assertEqual(payload['username'], 'octocat')
         self.assertNotIn('access_token', payload)
 
-    def test_api_me_alias_returns_current_user(self):
+    def test_unversioned_api_me_alias_is_not_available(self):
         response = self.client.get(
-            reverse('api-me'),
+            '/api/me/',
             HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
         )
 
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.json()['email'], 'octocat@example.com')
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)

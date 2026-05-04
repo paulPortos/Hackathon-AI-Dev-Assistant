@@ -21,7 +21,7 @@ class UserDescriptionTests(TestCase):
 
     def test_get_me_returns_404_when_description_missing(self):
         response = self.client.get(
-            reverse('api-v1:user-descriptions:user-description-me', kwargs={'version': 'v1'}),
+            reverse('user-descriptions-api:user-description-me', kwargs={'version': 'v1'}),
             HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
         )
 
@@ -29,7 +29,7 @@ class UserDescriptionTests(TestCase):
 
     def test_patch_me_creates_description(self):
         response = self.client.patch(
-            reverse('api-v1:user-descriptions:user-description-me', kwargs={'version': 'v1'}),
+            reverse('user-descriptions-api:user-description-me', kwargs={'version': 'v1'}),
             {
                 'primary_role': 'backend',
                 'experience_level': 'mid',
@@ -55,7 +55,7 @@ class UserDescriptionTests(TestCase):
         UserDescription.objects.create(user=self.user, primary_role='frontend', summary='Old')
 
         response = self.client.patch(
-            reverse('api-v1:user-descriptions:user-description-me', kwargs={'version': 'v1'}),
+            reverse('user-descriptions-api:user-description-me', kwargs={'version': 'v1'}),
             {'primary_role': 'fullstack', 'summary': 'Now handles frontend and backend.'},
             content_type='application/json',
             HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
@@ -69,7 +69,7 @@ class UserDescriptionTests(TestCase):
 
     def test_patch_me_validates_skills(self):
         response = self.client.patch(
-            reverse('api-v1:user-descriptions:user-description-me', kwargs={'version': 'v1'}),
+            reverse('user-descriptions-api:user-description-me', kwargs={'version': 'v1'}),
             {'skills': [{'name': 'Django', 'level': 6}]},
             content_type='application/json',
             HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
@@ -82,7 +82,7 @@ class UserDescriptionTests(TestCase):
         UserDescription.objects.create(user=self.user, primary_role='backend')
 
         response = self.client.get(
-            reverse('api-v1:user-descriptions:user-description-list', kwargs={'version': 'v1'}),
+            reverse('user-descriptions-api:user-description-list', kwargs={'version': 'v1'}),
             HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
         )
 
@@ -97,7 +97,7 @@ class UserDescriptionTests(TestCase):
 
         response = self.client.get(
             reverse(
-                'api-v1:user-descriptions:user-description-detail',
+                'user-descriptions-api:user-description-detail',
                 kwargs={'version': 'v1', 'pk': user_description.id},
             ),
             HTTP_AUTHORIZATION=f'Bearer {self.access_token}',

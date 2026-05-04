@@ -36,7 +36,7 @@ class EmailVerificationTests(TestCase):
     @patch.object(request_service_module, 'send_email_verification_code')
     def test_request_endpoint_sends_code(self, send_email):
         response = self.client.post(
-            reverse('api-v1:email-verifications:email-verification-request', kwargs={'version': 'v1'}),
+            reverse('users-api:email-verification-request', kwargs={'version': 'v1'}),
             HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
         )
 
@@ -55,7 +55,7 @@ class EmailVerificationTests(TestCase):
         self.user.save(update_fields=['email'])
 
         response = self.client.post(
-            reverse('api-v1:email-verifications:email-verification-request', kwargs={'version': 'v1'}),
+            reverse('users-api:email-verification-request', kwargs={'version': 'v1'}),
             HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
         )
 
@@ -74,7 +74,7 @@ class EmailVerificationTests(TestCase):
         )
 
         response = self.client.post(
-            reverse('api-v1:email-verifications:email-verification-request', kwargs={'version': 'v1'}),
+            reverse('users-api:email-verification-request', kwargs={'version': 'v1'}),
             HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
         )
 
@@ -92,7 +92,7 @@ class EmailVerificationTests(TestCase):
         )
 
         response = self.client.post(
-            reverse('api-v1:email-verifications:email-verification-confirm', kwargs={'version': 'v1'}),
+            reverse('users-api:email-verification-confirm', kwargs={'version': 'v1'}),
             {'code': '123456'},
             content_type='application/json',
             HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
@@ -108,7 +108,7 @@ class EmailVerificationTests(TestCase):
 
     def test_confirm_endpoint_rejects_invalid_format(self):
         response = self.client.post(
-            reverse('api-v1:email-verifications:email-verification-confirm', kwargs={'version': 'v1'}),
+            reverse('users-api:email-verification-confirm', kwargs={'version': 'v1'}),
             {'code': 'abc'},
             content_type='application/json',
             HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
@@ -127,7 +127,7 @@ class EmailVerificationTests(TestCase):
         )
 
         response = self.client.post(
-            reverse('api-v1:email-verifications:email-verification-confirm', kwargs={'version': 'v1'}),
+            reverse('users-api:email-verification-confirm', kwargs={'version': 'v1'}),
             {'code': '654321'},
             content_type='application/json',
             HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
@@ -148,7 +148,7 @@ class EmailVerificationTests(TestCase):
         )
 
         response = self.client.post(
-            reverse('api-v1:email-verifications:email-verification-confirm', kwargs={'version': 'v1'}),
+            reverse('users-api:email-verification-confirm', kwargs={'version': 'v1'}),
             {'code': '123456'},
             content_type='application/json',
             HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
@@ -168,7 +168,7 @@ class EmailVerificationTests(TestCase):
         )
 
         response = self.client.post(
-            reverse('api-v1:email-verifications:email-verification-confirm', kwargs={'version': 'v1'}),
+            reverse('users-api:email-verification-confirm', kwargs={'version': 'v1'}),
             {'code': '123456'},
             content_type='application/json',
             HTTP_AUTHORIZATION=f'Bearer {self.access_token}',
@@ -188,7 +188,7 @@ class EmailVerificationTests(TestCase):
         )
 
         response = self.client.post(
-            reverse('api-v1:email-verifications:email-verification-confirm', kwargs={'version': 'v1'}),
+            reverse('users-api:email-verification-confirm', kwargs={'version': 'v1'}),
             {'code': '123456'},
             content_type='application/json',
             HTTP_AUTHORIZATION=f'Bearer {self.access_token}',

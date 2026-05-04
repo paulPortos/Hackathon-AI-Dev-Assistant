@@ -65,6 +65,7 @@ app_name/
 ## API Rules
 
 - Version API endpoints. Use `/api/v1/` as the canonical prefix unless a task explicitly introduces another version.
+- Put versioned API prefixes in the app-level `urls.py`, not only in the project `config/urls.py`.
 - Keep compatibility aliases only when they are intentionally required.
 - Use JWT as the backend auth token format unless explicitly changed.
 - List `GET` endpoints must be paginated by default.
