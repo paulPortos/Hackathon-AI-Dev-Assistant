@@ -23,6 +23,7 @@ from users.models import User
 
 project_import_service_module = importlib.import_module('projects.services.project_import_from_github')
 project_meeting_reminder_send_service_module = importlib.import_module('projects.services.project_meeting_reminder_send')
+project_repository_branch_list_service_module = importlib.import_module('projects.services.project_repository_branch_list')
 
 
 class ProjectTests(TestCase):
@@ -161,6 +162,74 @@ class ProjectTests(TestCase):
         payload = response.json()
         self.assertEqual(payload['count'], 1)
         self.assertEqual(payload['results'][0]['id'], visible_project.id)
+
+    def test_project_repository_branch_list_returns_default_branch_and_commit_shas(self):
+        project = self.create_project()
+        ProjectMember.objects.create(project=project, user=self.member, invited_by=self.creator, display_role='Backend Developer', roles=['backend'])
+
+        with patch.object(project_repository_branch_list_service_module, 'fetch_github_repository_branches') as fetch_branches:
+            fetch_branches.return_value = [
+                {'name': 'main', 'commit': {'sha': 'main-sha'}},
+                {'name': 'feature/auth', 'commit': {'sha': 'feature-sha'}},
+            ]
+
+            response = self.client.get(
+                reverse('api:projects:project-repository-branch-list', kwargs={'version': 'v1', 'project_id': project.id}),
+                **self.auth_header(self.member),
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        payload = response.json()
+        self.assertEqual(payload['default_branch'], 'main')
+        self.assertEqual(
+            payload['branches'],
+            [
+                {'name': 'main', 'commit_sha': 'main-sha', 'is_default': True},
+                {'name': 'feature/auth', 'commit_sha': 'feature-sha', 'is_default': False},
+            ],
+        )
+        fetch_branches.assert_called_once_with(access_token='creator-github-token', repository='octocat/hello-world')
+
+    def test_project_repository_branch_list_is_member_scoped(self):
+        project = self.create_project()
+
+        with patch.object(project_repository_branch_list_service_module, 'fetch_github_repository_branches') as fetch_branches:
+            response = self.client.get(
+                reverse('api:projects:project-repository-branch-list', kwargs={'version': 'v1', 'project_id': project.id}),
+                **self.auth_header(self.outsider),
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        fetch_branches.assert_not_called()
+
+    def test_project_repository_branch_list_requires_creator_github_token(self):
+        project = self.create_project()
+        self.creator.access_token = ''
+        self.creator.save(update_fields=['access_token', 'updated_at'])
+
+        with patch.object(project_repository_branch_list_service_module, 'fetch_github_repository_branches') as fetch_branches:
+            response = self.client.get(
+                reverse('api:projects:project-repository-branch-list', kwargs={'version': 'v1', 'project_id': project.id}),
+                **self.auth_header(self.creator),
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.json()['detail'], 'Project creator does not have a connected GitHub token')
+        fetch_branches.assert_not_called()
+
+    def test_project_repository_branch_list_rejects_malformed_github_payload(self):
+        project = self.create_project()
+
+        with patch.object(project_repository_branch_list_service_module, 'fetch_github_repository_branches') as fetch_branches:
+            fetch_branches.return_value = [{'name': 'main', 'commit': {}}]
+
+            response = self.client.get(
+                reverse('api:projects:project-repository-branch-list', kwargs={'version': 'v1', 'project_id': project.id}),
+                **self.auth_header(self.creator),
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.json()['detail'], 'GitHub repository branches fetch returned an invalid response')
 
     def test_project_detail_read_and_creator_context_update_permissions(self):
         project = self.create_project()

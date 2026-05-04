@@ -8,6 +8,7 @@ from projects.views import (
     ProjectMeetingSettingsView,
     ProjectMemberDetailView,
     ProjectMemberListView,
+    ProjectRepositoryBranchListView,
     ProjectTaskDetailView,
     ProjectTaskListView,
     ProjectVulnerabilityDetailView,
@@ -52,6 +53,11 @@ urlpatterns = [
         '<int:project_id>/members/<int:member_id>/',
         ProjectMemberDetailView.as_view(),
         name='project-member-detail'
+    ),
+    path(
+        '<int:project_id>/repository/branches/',
+        ProjectRepositoryBranchListView.as_view(),
+        name='project-repository-branch-list'
     ),
     path(
         '<int:project_id>/tasks/',

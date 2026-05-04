@@ -6,6 +6,7 @@ from projects.services.project_meeting_settings_upsert import project_meeting_se
 from projects.services.project_member_delete import project_member_delete
 from projects.services.project_member_invite import project_member_invite
 from projects.services.project_member_update import project_member_update
+from projects.services.project_repository_branch_list import project_repository_branch_list
 from projects.services.project_task_create import project_task_create
 from projects.services.project_task_delete import project_task_delete
 from projects.services.project_task_status_update import project_task_status_update
@@ -24,6 +25,7 @@ __all__ = [
     'project_member_delete',
     'project_member_invite',
     'project_member_update',
+    'project_repository_branch_list',
     'project_task_create',
     'project_task_delete',
     'project_task_status_update',
