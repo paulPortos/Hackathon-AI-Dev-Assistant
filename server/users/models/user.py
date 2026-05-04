@@ -10,6 +10,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     username = models.CharField(max_length=255)
     name = models.CharField(max_length=255, blank=True)
     email = models.EmailField(blank=True)
+    email_verified_at = models.DateTimeField(blank=True, null=True)
     avatar_url = models.URLField(blank=True)
     access_token = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)

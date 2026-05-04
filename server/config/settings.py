@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'users',
     'user_descriptions',
+    'email_verifications',
 ]
 
 MIDDLEWARE = [
@@ -80,24 +81,16 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 
-if env_bool('DJANGO_TEST_USE_SQLITE', default=False):
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': ':memory:',
-        }
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': env('POSTGRES_DB', required=True),
+        'USER': env('POSTGRES_USER', required=True),
+        'PASSWORD': env('POSTGRES_PASSWORD', required=True),
+        'HOST': env('POSTGRES_HOST', 'localhost'),
+        'PORT': env('POSTGRES_PORT', '5432'),
     }
-else:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': env('POSTGRES_DB', required=True),
-            'USER': env('POSTGRES_USER', required=True),
-            'PASSWORD': env('POSTGRES_PASSWORD', required=True),
-            'HOST': env('POSTGRES_HOST', 'localhost'),
-            'PORT': env('POSTGRES_PORT', '5432'),
-        }
-    }
+}
 
 
 AUTH_USER_MODEL = 'users.User'
@@ -130,6 +123,13 @@ GITHUB_CLIENT_ID = env('GITHUB_CLIENT_ID', required=True)
 GITHUB_CLIENT_SECRET = env('GITHUB_CLIENT_SECRET', required=True)
 GITHUB_CALLBACK_URL = env('GITHUB_CALLBACK_URL', 'http://localhost:8000/auth/github/callback/')
 GITHUB_PRIVATE_KEY_PATH = env('GITHUB_PRIVATE_KEY_PATH')
+
+TWILLIO_SENDGRID_API_KEY = env('TWILLIO_SENDGRID_API_KEY')
+TWILLIO_SENDGRID_FROM_EMAIL = env('TWILLIO_SENDGRID_FROM_EMAIL')
+TWILLIO_SENDGRID_FROM_NAME = env('TWILLIO_SENDGRID_FROM_NAME', 'AI Dev Assistant')
+EMAIL_VERIFICATION_CODE_TTL_MINUTES = int(env('EMAIL_VERIFICATION_CODE_TTL_MINUTES', '10'))
+EMAIL_VERIFICATION_MAX_ATTEMPTS = int(env('EMAIL_VERIFICATION_MAX_ATTEMPTS', '5'))
+EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS = int(env('EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS', '60'))
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (

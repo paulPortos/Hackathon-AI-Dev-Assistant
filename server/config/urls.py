@@ -9,6 +9,7 @@ from users.views import MeView
 api_v1_patterns = [
     path('me/', MeView.as_view(), name='me'),
     path('user-descriptions/', include(('user_descriptions.urls', 'user_descriptions'), namespace='user-descriptions')),
+    path('email-verifications/', include(('email_verifications.urls', 'email_verifications'), namespace='email-verifications')),
     path('auth/token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
     path('auth/token/verify/', TokenVerifyView.as_view(), name='token-verify'),
 ]

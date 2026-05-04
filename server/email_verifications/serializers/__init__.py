@@ -1,0 +1,4 @@
+from email_verifications.serializers.email_verification_confirm_serializer import EmailVerificationConfirmSerializer
+from email_verifications.serializers.email_verification_request_serializer import EmailVerificationRequestSerializer
+
+__all__ = ['EmailVerificationConfirmSerializer', 'EmailVerificationRequestSerializer']

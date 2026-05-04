@@ -31,8 +31,6 @@ dist/
 
 # Django files
 *.log
-db.sqlite3
-*/db.sqlite3
 media/
 staticfiles/
 

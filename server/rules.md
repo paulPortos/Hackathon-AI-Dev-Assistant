@@ -7,7 +7,7 @@ These rules apply only to the Django backend under `server/`. Do not use this fi
 - Use Django, Django REST Framework, PostgreSQL, and JWT authentication unless a task explicitly changes the backend stack.
 - Use Argon2id through Django's `Argon2PasswordHasher` as the first password hasher.
 - Keep runtime configuration in `.env` or environment variables. Never hardcode secrets, credentials, callback URLs, private key paths, or machine-specific absolute paths.
-- PostgreSQL is the normal runtime database. Test-only database overrides are allowed when they do not change runtime behavior.
+- PostgreSQL is the only supported database for runtime and tests.
 
 ## App Structure
 
@@ -92,4 +92,4 @@ python manage.py test <app_name>
 ```
 
 - For server-wide changes, run the full backend test suite.
-- Test-only environment overrides are allowed when they keep production settings strict and unchanged.
+- Tests must run against PostgreSQL. Do not add alternate database fallbacks or test-only database settings.
