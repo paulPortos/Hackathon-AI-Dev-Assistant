@@ -1,3 +1,4 @@
+from projects.selectors.project_audit_log_list import project_audit_log_list
 from projects.selectors.project_get_agent_context import project_get_agent_context
 from projects.selectors.project_get_for_member import project_get_for_member
 from projects.selectors.project_list_for_user import project_list_for_user
@@ -11,6 +12,7 @@ from projects.selectors.project_vulnerability_get_for_project import project_vul
 from projects.selectors.project_vulnerability_list import project_vulnerability_list
 
 __all__ = [
+    'project_audit_log_list',
     'project_get_agent_context',
     'project_get_for_member',
     'project_list_for_user',

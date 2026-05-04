@@ -1,4 +1,5 @@
 from django.core.exceptions import ObjectDoesNotExist
+from rest_framework import status
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -10,7 +11,7 @@ from projects.selectors import (
     project_vulnerability_get_for_project,
 )
 from projects.serializers import ProjectTaskSerializer, ProjectTaskStatusUpdateSerializer, ProjectTaskUpdateSerializer
-from projects.services import project_task_status_update, project_task_update
+from projects.services import project_task_delete, project_task_status_update, project_task_update
 
 
 class ProjectTaskDetailView(APIView):
@@ -54,7 +55,7 @@ class ProjectTaskDetailView(APIView):
                 raise NotFound('Related project resource does not exist') from exc
 
             try:
-                project_task = project_task_update(project_task=project_task, data=data)
+                project_task = project_task_update(project_task=project_task, data=data, actor_user=request.user)
             except ValueError as exc:
                 raise ValidationError({'detail': str(exc)}) from exc
             return Response(ProjectTaskSerializer(project_task).data)
@@ -64,7 +65,24 @@ class ProjectTaskDetailView(APIView):
                 raise PermissionDenied('Assigned members can only update task status')
             serializer = ProjectTaskStatusUpdateSerializer(data=request.data)
             serializer.is_valid(raise_exception=True)
-            project_task = project_task_status_update(project_task=project_task, status=serializer.validated_data['status'])
+            project_task = project_task_status_update(
+                project_task=project_task,
+                status=serializer.validated_data['status'],
+                actor_user=request.user,
+            )
             return Response(ProjectTaskSerializer(project_task).data)
 
         raise PermissionDenied('Only project creator or assigned member can update task')
+
+    def delete(self, request, project_id, task_id, version=None):
+        try:
+            project = project_get_for_member(project_id=project_id, user=request.user)
+            project_task = project_task_get_for_project(project=project, task_id=task_id)
+        except ObjectDoesNotExist as exc:
+            raise NotFound('Project task does not exist') from exc
+
+        if project.creator_id != request.user.id:
+            raise PermissionDenied('Only project creator can delete task')
+
+        project_task_delete(project_task=project_task, actor_user=request.user)
+        return Response(status=status.HTTP_204_NO_CONTENT)

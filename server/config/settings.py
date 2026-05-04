@@ -51,6 +51,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'config.middleware.request_id_middleware.RequestIdMiddleware',
+    'config.middleware.security_audit_middleware.SecurityAuditMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -127,6 +129,10 @@ TWILLIO_SENDGRID_API_KEY = env('TWILLIO_SENDGRID_API_KEY')
 TWILLIO_SENDGRID_FROM_EMAIL = env('TWILLIO_SENDGRID_FROM_EMAIL')
 TWILLIO_SENDGRID_FROM_NAME = env('TWILLIO_SENDGRID_FROM_NAME', 'AI Dev Assistant')
 
+SECURITY_AUDIT_BODY_MAX_BYTES = int(env('SECURITY_AUDIT_BODY_MAX_BYTES', '8192'))
+SECURITY_AUDIT_MAX_SUSPICIOUS_SIGNALS = int(env('SECURITY_AUDIT_MAX_SUSPICIOUS_SIGNALS', '20'))
+SECURITY_AUDIT_LOG_LEVEL = env('SECURITY_AUDIT_LOG_LEVEL', 'INFO').upper()
+
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
@@ -140,11 +146,45 @@ REST_FRAMEWORK = {
     'VERSION_PARAM': 'version',
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
+    'EXCEPTION_HANDLER': 'config.exception_handlers.friendly_exception_handler.friendly_exception_handler',
 }
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=int(env('JWT_ACCESS_TOKEN_MINUTES', '60'))),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=int(env('JWT_REFRESH_TOKEN_DAYS', '7'))),
+}
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'json': {
+            '()': 'config.logging.structured_json_formatter.StructuredJsonFormatter',
+        },
+    },
+    'handlers': {
+        'console_json': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'json',
+        },
+    },
+    'loggers': {
+        'api.errors': {
+            'handlers': ['console_json'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+        'security.audit': {
+            'handlers': ['console_json'],
+            'level': SECURITY_AUDIT_LOG_LEVEL,
+            'propagate': False,
+        },
+        'security.suspicious_input': {
+            'handlers': ['console_json'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+    },
 }
 
 

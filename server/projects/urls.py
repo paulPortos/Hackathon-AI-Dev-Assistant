@@ -1,6 +1,7 @@
 from django.urls import path
 
 from projects.views import (
+    ProjectAuditLogListView,
     ProjectDetailView,
     ProjectImportFromGitHubView,
     ProjectListView,
@@ -31,6 +32,11 @@ urlpatterns = [
         '<int:project_id>/',
         ProjectDetailView.as_view(),
         name='project-detail'
+    ),
+    path(
+        '<int:project_id>/audit-logs/',
+        ProjectAuditLogListView.as_view(),
+        name='project-audit-log-list'
     ),
     path(
         '<int:project_id>/meeting-settings/',

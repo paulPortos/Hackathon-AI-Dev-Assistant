@@ -9,9 +9,14 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from projects.models import Project, ProjectMeetingSettings, ProjectMember, ProjectTask
+from projects.models import Project, ProjectAuditLog, ProjectMeetingSettings, ProjectMember, ProjectTask
 from projects.selectors import project_get_agent_context, project_meeting_settings_due_for_reminder
-from projects.services import project_meeting_reminder_send, project_task_create, project_vulnerability_create
+from projects.services import (
+    project_meeting_reminder_send,
+    project_task_create,
+    project_vulnerability_create,
+    project_vulnerability_mark_resolved,
+)
 from user_descriptions.models import UserDescription
 from users.models import User
 
@@ -576,3 +581,107 @@ class ProjectTests(TestCase):
         self.assertIn('Document threat model', kwargs['text_content'])
         meeting_settings.refresh_from_db()
         self.assertIsNotNone(meeting_settings.last_reminder_sent_at)
+
+    def test_task_mutations_are_auto_audited(self):
+        project = self.create_project()
+        project_member = ProjectMember.objects.create(
+            project=project,
+            user=self.member,
+            invited_by=self.creator,
+            display_role='Backend Developer',
+            roles=['backend'],
+        )
+        owner_membership = ProjectMember.objects.get(project=project, user=self.creator)
+        project_task = project_task_create(
+            project=project,
+            data={
+                'assigned_to': project_member,
+                'title': 'Review auth flow',
+                'priority': 'medium',
+                'status': 'todo',
+                'created_by_agent': 'PM Agent',
+            },
+        )
+
+        assigned_status_response = self.client.patch(
+            reverse(
+                'api:projects:project-task-detail',
+                kwargs={'version': 'v1', 'project_id': project.id, 'task_id': project_task.id},
+            ),
+            {'status': 'in_progress'},
+            content_type='application/json',
+            **self.auth_header(self.member),
+        )
+        creator_update_response = self.client.patch(
+            reverse(
+                'api:projects:project-task-detail',
+                kwargs={'version': 'v1', 'project_id': project.id, 'task_id': project_task.id},
+            ),
+            {
+                'assigned_to_id': owner_membership.id,
+                'priority': 'critical',
+                'due_date': '2026-05-08',
+                'title': 'Review and harden auth flow',
+            },
+            content_type='application/json',
+            **self.auth_header(self.creator),
+        )
+        delete_response = self.client.delete(
+            reverse(
+                'api:projects:project-task-detail',
+                kwargs={'version': 'v1', 'project_id': project.id, 'task_id': project_task.id},
+            ),
+            **self.auth_header(self.creator),
+        )
+        list_response = self.client.get(
+            reverse('api:projects:project-audit-log-list', kwargs={'version': 'v1', 'project_id': project.id}),
+            **self.auth_header(self.member),
+        )
+        outsider_response = self.client.get(
+            reverse('api:projects:project-audit-log-list', kwargs={'version': 'v1', 'project_id': project.id}),
+            **self.auth_header(self.outsider),
+        )
+
+        self.assertEqual(assigned_status_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(creator_update_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(delete_response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(ProjectTask.objects.filter(id=project_task.id).exists())
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(outsider_response.status_code, status.HTTP_404_NOT_FOUND)
+
+        events = set(ProjectAuditLog.objects.filter(project=project).values_list('event_type', flat=True))
+        self.assertIn(ProjectAuditLog.EventType.TASK_CREATED, events)
+        self.assertIn(ProjectAuditLog.EventType.TASK_STATUS_CHANGED, events)
+        self.assertIn(ProjectAuditLog.EventType.TASK_REASSIGNED, events)
+        self.assertIn(ProjectAuditLog.EventType.TASK_PRIORITY_CHANGED, events)
+        self.assertIn(ProjectAuditLog.EventType.TASK_DUE_DATE_CHANGED, events)
+        self.assertIn(ProjectAuditLog.EventType.TASK_UPDATED, events)
+        self.assertIn(ProjectAuditLog.EventType.TASK_DELETED, events)
+
+        created_log = ProjectAuditLog.objects.get(project=project, event_type=ProjectAuditLog.EventType.TASK_CREATED)
+        status_log = ProjectAuditLog.objects.get(project=project, event_type=ProjectAuditLog.EventType.TASK_STATUS_CHANGED)
+        priority_log = ProjectAuditLog.objects.get(project=project, event_type=ProjectAuditLog.EventType.TASK_PRIORITY_CHANGED)
+        self.assertEqual(created_log.actor_agent, 'PM Agent')
+        self.assertEqual(status_log.actor_user, self.member)
+        self.assertEqual(priority_log.actor_user, self.creator)
+        self.assertEqual(priority_log.before, {'priority': 'medium'})
+        self.assertEqual(priority_log.after, {'priority': 'critical'})
+        self.assertGreaterEqual(list_response.json()['count'], 7)
+
+    def test_vulnerability_mark_resolved_is_auto_audited(self):
+        project = self.create_project()
+        vulnerability = project_vulnerability_create(
+            project=project,
+            data={'title': 'Missing authorization check', 'severity': 'critical', 'status': 'open'},
+        )
+
+        project_vulnerability_mark_resolved(vulnerability=vulnerability, actor_agent='SR Dev Agent')
+
+        vulnerability.refresh_from_db()
+        audit_log = ProjectAuditLog.objects.get(project=project, event_type=ProjectAuditLog.EventType.VULNERABILITY_RESOLVED)
+        self.assertEqual(vulnerability.status, 'resolved')
+        self.assertEqual(audit_log.actor_agent, 'SR Dev Agent')
+        self.assertEqual(audit_log.target_type, ProjectAuditLog.TargetType.PROJECT_VULNERABILITY)
+        self.assertEqual(audit_log.target_id, vulnerability.id)
+        self.assertEqual(audit_log.before, {'status': 'open'})
+        self.assertEqual(audit_log.after, {'status': 'resolved'})
