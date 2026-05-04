@@ -26,7 +26,7 @@ class GitHubOAuthTests(TestCase):
         self.assertEqual(f'{parsed.scheme}://{parsed.netloc}{parsed.path}', 'https://github.com/login/oauth/authorize')
         self.assertEqual(query['client_id'], ['client-id'])
         self.assertEqual(query['redirect_uri'], ['http://localhost:8000/auth/github/callback/'])
-        self.assertEqual(query['scope'], ['read:user user:email'])
+        self.assertEqual(query['scope'], ['read:user user:email repo'])
         self.assertEqual(query['state'], [session[GITHUB_OAUTH_STATE_SESSION_KEY]])
 
     def test_callback_requires_valid_state(self):

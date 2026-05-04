@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework_simplejwt',
+    'projects',
     'users',
     'user_descriptions',
 ]
@@ -121,6 +122,10 @@ GITHUB_CLIENT_ID = env('GITHUB_CLIENT_ID', required=True)
 GITHUB_CLIENT_SECRET = env('GITHUB_CLIENT_SECRET', required=True)
 GITHUB_CALLBACK_URL = env('GITHUB_CALLBACK_URL', 'http://localhost:8000/auth/github/callback/')
 GITHUB_PRIVATE_KEY_PATH = env('GITHUB_PRIVATE_KEY_PATH')
+
+TWILLIO_SENDGRID_API_KEY = env('TWILLIO_SENDGRID_API_KEY')
+TWILLIO_SENDGRID_FROM_EMAIL = env('TWILLIO_SENDGRID_FROM_EMAIL')
+TWILLIO_SENDGRID_FROM_NAME = env('TWILLIO_SENDGRID_FROM_NAME', 'AI Dev Assistant')
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (

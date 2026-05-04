@@ -7,6 +7,7 @@ from users.urls import auth_urlpatterns
 api_urlpatterns = [
     path('auth/tokens/refresh/', TokenRefreshView.as_view(), name='auth-token-refresh'),
     path('auth/tokens/verify/', TokenVerifyView.as_view(), name='auth-token-verify'),
+    path('projects/', include(('projects.urls', 'projects'), namespace='projects')),
     path('users/', include(('users.urls', 'users'), namespace='users')),
     path('user-descriptions/', include(('user_descriptions.urls', 'user_descriptions'), namespace='user-descriptions')),
 ]
