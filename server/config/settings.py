@@ -37,12 +37,14 @@ ALLOWED_HOSTS = [
 
 
 INSTALLED_APPS = [
+    'daphne',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'channels',
+
     'corsheaders',
     'rest_framework',
     'rest_framework_simplejwt',

@@ -12,6 +12,7 @@ import ProjectsPage from './pages/ProjectsPage';
 import ProjectPage from './pages/ProjectPage';
 import RegisterPage from './pages/RegisterPage';
 import SeniorPage from './pages/SeniorPage';
+import ScrumLiveAgent from './components/ScrumLiveAgent';
 
 export default function App() {
   return (
@@ -29,7 +30,9 @@ export default function App() {
             <Route path="/projects/:projectId" element={<ProjectPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/senior" element={<SeniorPage />} />
+            <Route path="/scrum-live" element={<ScrumLiveAgent />} />
           </Route>
+
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </BrowserRouter>

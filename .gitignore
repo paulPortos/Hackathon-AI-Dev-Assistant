@@ -68,4 +68,6 @@ htmlcov/
 wiki/
 wiki_kb/
 
+#
+/live-api-web-console
 
