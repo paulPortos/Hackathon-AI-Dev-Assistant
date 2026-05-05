@@ -1,4 +1,5 @@
 Django==4.2.30
+channels==4.1.0
 djangorestframework==3.16.1
 djangorestframework-simplejwt[crypto]==5.5.1
 python-dotenv==1.1.1

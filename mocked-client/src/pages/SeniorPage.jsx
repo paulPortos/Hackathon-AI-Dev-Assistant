@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { api } from '../api';
 import { normalizeList } from '../api/client';
+import { WS_ROOT } from '../api/config';
 import { GitHubIcon } from '../components/Icons';
 
 const defaultGreeting =
@@ -23,6 +24,7 @@ export default function SeniorPage() {
   const [selectedBranch, setSelectedBranch] = useState('main');
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
+  const socketRef = useRef(null);
 
   const loadSessions = async () => {
     setStatus('loading');
@@ -49,14 +51,42 @@ export default function SeniorPage() {
     }
   };
 
-  const loadMessages = async (sessionId) => {
-    try {
-      const payload = await api.listSeniorMessages(sessionId);
-      setMessages(normalizeList(payload));
-    } catch (err) {
-      setError(err.message);
+  const closeSocket = () => {
+    if (socketRef.current) {
+      socketRef.current.close();
+      socketRef.current = null;
     }
   };
+
+  const sendWsPayload = (payload) => {
+    const socket = socketRef.current;
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      setError('WebSocket is not connected');
+      return false;
+    }
+    socket.send(JSON.stringify(payload));
+    return true;
+  };
+
+  const readFileAsBase64 = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = String(reader.result || '');
+        const parts = result.split(',');
+        const base64 = parts.length > 1 ? parts[1] : '';
+        if (!base64) {
+          reject(new Error('Failed to read audio data'));
+          return;
+        }
+        resolve({
+          base64,
+          contentType: file.type || 'application/octet-stream',
+        });
+      };
+      reader.onerror = () => reject(new Error('Failed to read audio file'));
+      reader.readAsDataURL(file);
+    });
 
   const handleCreateSession = async (pId, bName = 'main') => {
     try {
@@ -94,49 +124,104 @@ export default function SeniorPage() {
   }, [initialProjectId]);
 
   useEffect(() => {
-    if (selectedSessionId) {
-      loadMessages(selectedSessionId);
+    if (!selectedSessionId) {
+      setMessages([]);
+      closeSocket();
+      return;
     }
+
+    setMessages([]);
+    setError('');
+    closeSocket();
+
+    const wsUrl = `${WS_ROOT}/sr-dev/sessions/${selectedSessionId}/`;
+    const socket = new WebSocket(wsUrl);
+    socketRef.current = socket;
+
+    socket.onmessage = (event) => {
+      let payload;
+      try {
+        payload = JSON.parse(event.data);
+      } catch (err) {
+        return;
+      }
+
+      if (payload.event === 'history') {
+        setMessages(normalizeList(payload.messages));
+        return;
+      }
+
+      if (payload.event === 'message' && payload.message) {
+        setMessages((prev) => [...prev, payload.message]);
+        return;
+      }
+
+      if (payload.event === 'error') {
+        setError(payload.message || 'WebSocket error');
+      }
+    };
+
+    socket.onerror = () => {
+      setError('WebSocket error');
+    };
+
+    socket.onclose = (event) => {
+      if (event.code === 4401) {
+        setError('WebSocket unauthorized. Please sign in again.');
+      } else if (event.code === 4404) {
+        setError('Session not found.');
+      } else if (!event.wasClean) {
+        setError('WebSocket disconnected.');
+      }
+    };
+
+    return () => {
+      if (socketRef.current === socket) {
+        socket.close();
+        socketRef.current = null;
+      }
+    };
   }, [selectedSessionId]);
 
   const sendChoice = async (choiceText) => {
     if (!selectedSessionId) return;
-    try {
-      await api.sendSeniorMessage(selectedSessionId, {
-        input_type: 'choice',
-        choice: choiceText,
-        choice_payload: { source: 'ui' },
-      });
-      await loadMessages(selectedSessionId);
-    } catch (err) {
-      setError(err.message);
-    }
+    sendWsPayload({
+      action: 'send_message',
+      input_type: 'choice',
+      choice: choiceText,
+      choice_payload: { source: 'ui' },
+    });
   };
 
   const sendText = async () => {
     if (!selectedSessionId || !inputText.trim()) return;
-    try {
-      const textToSend = inputText;
+    const textToSend = inputText.trim();
+    const sent = sendWsPayload({
+      action: 'send_message',
+      input_type: 'open_text',
+      text: textToSend,
+    });
+    if (sent) {
       setInputText('');
-      await api.sendSeniorMessage(selectedSessionId, {
-        input_type: 'open_text',
-        text: textToSend,
-      });
-      await loadMessages(selectedSessionId);
-    } catch (err) {
-      setError(err.message);
     }
   };
 
-  const sendAudio = async () => {
-    if (!selectedSessionId || !audioFile) return;
-    const formData = new FormData();
-    formData.append('input_type', 'audio');
-    formData.append('audio', audioFile);
+  const sendAudio = async (file) => {
+    if (!selectedSessionId || !file) return;
     try {
-      setAudioFile(null);
-      await api.sendSeniorMessage(selectedSessionId, formData, true);
-      await loadMessages(selectedSessionId);
+      const { base64, contentType } = await readFileAsBase64(file);
+      const sent = sendWsPayload({
+        action: 'send_message',
+        input_type: 'audio',
+        audio: {
+          base64,
+          content_type: contentType,
+          file_name: file.name,
+        },
+      });
+      if (sent) {
+        setAudioFile(null);
+      }
     } catch (err) {
       setError(err.message);
     }
@@ -210,8 +295,9 @@ export default function SeniorPage() {
               id="audio-upload"
               style={{ display: 'none' }}
               onChange={(e) => {
-                setAudioFile(e.target.files?.[0]);
-                if (e.target.files?.[0]) sendAudio();
+                const file = e.target.files?.[0] || null;
+                setAudioFile(file);
+                if (file) sendAudio(file);
               }}
             />
             <label htmlFor="audio-upload" className="button ghost" style={{ cursor: 'pointer', fontSize: '12px' }}>
