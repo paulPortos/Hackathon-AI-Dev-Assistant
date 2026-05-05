@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { api } from '../api';
-import { normalizeList } from '../api/client';
+import { authStorage, normalizeList } from '../api/client';
 import { WS_ROOT } from '../api/config';
 import { GitHubIcon } from '../components/Icons';
 
@@ -18,13 +18,22 @@ export default function SeniorPage() {
   const [sessions, setSessions] = useState([]);
   const [selectedSessionId, setSelectedSessionId] = useState('');
   const [messages, setMessages] = useState([]);
+  const [findings, setFindings] = useState([]);
   const [inputText, setInputText] = useState('');
   const [audioFile, setAudioFile] = useState(null);
   const [branches, setBranches] = useState([]);
   const [selectedBranch, setSelectedBranch] = useState('main');
+  const [sessionNameDraft, setSessionNameDraft] = useState('');
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
   const socketRef = useRef(null);
+  const autoCreatedRef = useRef(new Set());
+  const pendingQueueRef = useRef([]);
+
+  const selectedSession = useMemo(
+    () => sessions.find((session) => String(session.id) === selectedSessionId),
+    [sessions, selectedSessionId]
+  );
 
   const loadSessions = async () => {
     setStatus('loading');
@@ -44,11 +53,91 @@ export default function SeniorPage() {
   const loadBranches = async (pId) => {
     try {
       const payload = await api.listProjectBranches(pId);
-      setBranches(payload.branches || []);
+      const list = Array.isArray(payload.branches) ? payload.branches : [];
+      setBranches(list);
       if (payload.default_branch) setSelectedBranch(payload.default_branch);
+      return list;
     } catch (err) {
       console.error('Failed to load branches', err);
+      return [];
     }
+  };
+
+  const resolveBranchData = (branchName, branchList) => {
+    const list = Array.isArray(branchList) ? branchList : branches;
+    if (!list.length) {
+      return { name: branchName, commitSha: '' };
+    }
+    const exact = list.find((branch) => branch.name === branchName);
+    if (exact?.commit_sha) {
+      return { name: exact.name, commitSha: exact.commit_sha };
+    }
+    const fallback = list.find((branch) => branch.is_default) || list[0];
+    return { name: fallback?.name || branchName, commitSha: fallback?.commit_sha || '' };
+  };
+
+  const resolveSessionLabel = (session) =>
+    session.name || session.project_name || `Session ${session.id}`;
+
+  const enqueuePendingMessage = (inputType, textContent) => {
+    const clientId = `pending-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const pendingMessage = {
+      id: clientId,
+      client_id: clientId,
+      role: 'user',
+      input_type: inputType,
+      text_content: textContent,
+      structured_payload: {},
+      created_at: new Date().toISOString(),
+      is_pending: true,
+    };
+    pendingQueueRef.current.push({
+      clientId,
+      inputType,
+      textContent: textContent || '',
+    });
+    setMessages((prev) => [...prev, pendingMessage]);
+  };
+
+  const appendServerMessage = (message) => {
+    if (!message) return;
+    setMessages((prev) => {
+      if (prev.some((item) => item.id === message.id)) return prev;
+
+      let next = prev;
+      if (message.role === 'user') {
+        const queue = pendingQueueRef.current;
+        if (queue.length) {
+          const normalizedText = String(message.text_content || '').trim().toLowerCase();
+          let matchIndex = -1;
+
+          if (normalizedText) {
+            matchIndex = queue.findIndex((item) => {
+              if (item.inputType && message.input_type && item.inputType !== message.input_type) {
+                return false;
+              }
+              return item.textContent.trim().toLowerCase() === normalizedText;
+            });
+          }
+
+          if (matchIndex === -1) {
+            matchIndex = queue.findIndex((item) => {
+              if (item.inputType && message.input_type) {
+                return item.inputType === message.input_type;
+              }
+              return true;
+            });
+          }
+
+          if (matchIndex !== -1) {
+            const [matched] = queue.splice(matchIndex, 1);
+            next = next.filter((item) => item.client_id !== matched.clientId);
+          }
+        }
+      }
+
+      return [...next, message];
+    });
   };
 
   const closeSocket = () => {
@@ -88,33 +177,74 @@ export default function SeniorPage() {
       reader.readAsDataURL(file);
     });
 
-  const handleCreateSession = async (pId, bName = 'main') => {
+  const mergeFindings = (incoming) => {
+    if (!Array.isArray(incoming) || incoming.length === 0) return;
+    setFindings((prev) => {
+      const byId = new Map(prev.map((item) => [item.id, item]));
+      incoming.forEach((item) => {
+        if (item && item.id) {
+          byId.set(item.id, item);
+        }
+      });
+      return Array.from(byId.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    });
+  };
+
+  const handleCreateSession = async (pId, bName = 'main', branchList) => {
+    const resolved = resolveBranchData(bName, branchList);
+    if (!resolved.commitSha) {
+      setError('No commit SHA found for the selected branch. Reload branches and try again.');
+      return;
+    }
     try {
       const payload = await api.createSeniorSession({
         project_id: Number(pId),
-        commit_sha: 'latest',
-        branch_name: bName,
+        commit_sha: resolved.commitSha,
+        branch_name: resolved.name,
       });
       setSessions((prev) => [payload, ...prev]);
       setSelectedSessionId(String(payload.id));
+      setSelectedBranch(resolved.name);
     } catch (err) {
       setError('Session creation failed: ' + err.message);
     }
   };
 
+  const handleSessionNameSave = async () => {
+    if (!selectedSessionId) return;
+    const trimmed = sessionNameDraft.trim();
+    const currentName = selectedSession?.name || '';
+    if (trimmed === currentName) return;
+    try {
+      const payload = await api.updateSeniorSession(selectedSessionId, { name: trimmed });
+      setSessions((prev) => prev.map((item) => (item.id === payload.id ? payload : item)));
+      setSessionNameDraft(payload.name || '');
+    } catch (err) {
+      setError('Session rename failed: ' + err.message);
+    }
+  };
+
+  useEffect(() => {
+    setSessionNameDraft(selectedSession?.name || '');
+  }, [selectedSessionId, selectedSession?.name]);
+
   useEffect(() => {
     const init = async () => {
       const currentSessions = await loadSessions();
+      let branchList = [];
       if (initialProjectId) {
-        await loadBranches(initialProjectId);
+        branchList = await loadBranches(initialProjectId);
         // If a projectId is provided, try to find an existing active session or create a new one
         const existing = currentSessions.find(s => String(s.project_id) === initialProjectId);
         if (existing) {
           setSelectedSessionId(String(existing.id));
-        } else {
+        } else if (!autoCreatedRef.current.has(initialProjectId)) {
+          autoCreatedRef.current.add(initialProjectId);
           // We'll let the user click "Start" if they want a different branch, 
           // or just default to main for now.
-          await handleCreateSession(initialProjectId, 'main');
+          const defaultBranchName =
+            branchList.find((branch) => branch.is_default)?.name || selectedBranch || 'main';
+          await handleCreateSession(initialProjectId, defaultBranchName, branchList);
         }
       } else if (currentSessions.length > 0) {
         setSelectedSessionId(String(currentSessions[0].id));
@@ -126,15 +256,21 @@ export default function SeniorPage() {
   useEffect(() => {
     if (!selectedSessionId) {
       setMessages([]);
+      setFindings([]);
       closeSocket();
+      pendingQueueRef.current = [];
       return;
     }
 
     setMessages([]);
+    setFindings([]);
     setError('');
     closeSocket();
 
-    const wsUrl = `${WS_ROOT}/sr-dev/sessions/${selectedSessionId}/`;
+    const token = authStorage.getAccessToken();
+    const wsUrl = token
+      ? `${WS_ROOT}/sr-dev/sessions/${selectedSessionId}/?token=${encodeURIComponent(token)}`
+      : `${WS_ROOT}/sr-dev/sessions/${selectedSessionId}/`;
     const socket = new WebSocket(wsUrl);
     socketRef.current = socket;
 
@@ -147,12 +283,18 @@ export default function SeniorPage() {
       }
 
       if (payload.event === 'history') {
+        pendingQueueRef.current = [];
         setMessages(normalizeList(payload.messages));
         return;
       }
 
       if (payload.event === 'message' && payload.message) {
-        setMessages((prev) => [...prev, payload.message]);
+        appendServerMessage(payload.message);
+        return;
+      }
+
+      if (payload.event === 'findings') {
+        mergeFindings(normalizeList(payload.findings));
         return;
       }
 
@@ -185,12 +327,15 @@ export default function SeniorPage() {
 
   const sendChoice = async (choiceText) => {
     if (!selectedSessionId) return;
-    sendWsPayload({
+    const sent = sendWsPayload({
       action: 'send_message',
       input_type: 'choice',
       choice: choiceText,
       choice_payload: { source: 'ui' },
     });
+    if (sent) {
+      enqueuePendingMessage('choice', choiceText);
+    }
   };
 
   const sendText = async () => {
@@ -202,6 +347,7 @@ export default function SeniorPage() {
       text: textToSend,
     });
     if (sent) {
+      enqueuePendingMessage('open_text', textToSend);
       setInputText('');
     }
   };
@@ -220,6 +366,7 @@ export default function SeniorPage() {
         },
       });
       if (sent) {
+        enqueuePendingMessage('audio', 'Voice message sent');
         setAudioFile(null);
       }
     } catch (err) {
@@ -310,8 +457,60 @@ export default function SeniorPage() {
 
       {/* RIGHT COLUMN: SIDEBAR */}
       <aside style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-md)', padding: '24px', border: '1px solid rgba(0,0,0,0.05)', maxHeight: '40vh', overflowY: 'auto' }}>
+          <h4 style={{ margin: '0 0 16px' }}>Live Findings</h4>
+          {findings.length === 0 ? (
+            <p className="subtle" style={{ fontSize: '13px', margin: 0 }}>No findings yet.</p>
+          ) : (
+            <div className="list" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {findings.map((finding) => (
+                <div
+                  key={finding.id}
+                  style={{
+                    padding: '12px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid rgba(0,0,0,0.05)',
+                    background: 'white',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                    <div style={{ fontWeight: 600, fontSize: '13px' }}>{finding.title}</div>
+                    <span className="tag" style={{ fontSize: '11px' }}>{finding.severity}</span>
+                  </div>
+                  <div className="subtle" style={{ fontSize: '12px', marginTop: '6px' }}>
+                    {finding.type}{finding.category ? ` • ${finding.category}` : ''}
+                  </div>
+                  {finding.confidence_score !== null && finding.confidence_score !== undefined && (
+                    <div className="subtle" style={{ fontSize: '11px', marginTop: '6px' }}>
+                      Confidence: {finding.confidence_score}%
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-md)', padding: '24px', border: '1px solid rgba(0,0,0,0.05)' }}>
           <h4 style={{ margin: '0 0 16px' }}>Session Settings</h4>
+
+          <div className="field">
+            <label className="label" style={{ fontSize: '12px' }}>Session name</label>
+            <input
+              className="input"
+              value={sessionNameDraft}
+              onChange={(e) => setSessionNameDraft(e.target.value)}
+              onBlur={handleSessionNameSave}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleSessionNameSave();
+                }
+              }}
+              placeholder="Name this session"
+              disabled={!selectedSessionId}
+            />
+          </div>
           
           <div className="field">
             <label className="label" style={{ fontSize: '12px' }}>Project Branch</label>
@@ -348,7 +547,7 @@ export default function SeniorPage() {
               <option value="">Select a session...</option>
               {sessions.map(s => (
                 <option key={s.id} value={s.id}>
-                  {s.project_name || `Session ${s.id}`}
+                  {resolveSessionLabel(s)}
                 </option>
               ))}
             </select>
@@ -373,7 +572,7 @@ export default function SeniorPage() {
                   border: '1px solid rgba(0,0,0,0.02)'
                 }}
               >
-                <div style={{ fontWeight: 600, fontSize: '14px' }}>{session.project_name || 'Personal Assistant'}</div>
+                <div style={{ fontWeight: 600, fontSize: '14px' }}>{resolveSessionLabel(session)}</div>
                 <div className="subtle" style={{ fontSize: '11px' }}>{new Date(session.created_at).toLocaleTimeString()}</div>
               </div>
             ))}

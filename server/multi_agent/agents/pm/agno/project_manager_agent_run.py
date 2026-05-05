@@ -20,13 +20,17 @@ def project_manager_agent_run(*, context):
 
     try:
         from agno.agent import Agent
-        from agno.models.google import Gemini
+        from agno.models.ollama import Ollama
     except ImportError as exc:
         raise ValueError('Agno dependencies are not installed') from exc
 
     agent = Agent(
         name='Project Manager Agent',
-        model=Gemini(id=settings.PROJECT_MANAGER_AGENT_MODEL),
+        model=Ollama(
+            id=settings.PROJECT_MANAGER_AGENT_MODEL,
+            host=settings.OLLAMA_HOST,
+            api_key=settings.OLLAMA_API_KEY,
+        ),
         output_schema=ProjectManagerAgentOutput,
         tools=[],
         markdown=False,

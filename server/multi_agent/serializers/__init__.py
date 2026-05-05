@@ -4,6 +4,7 @@ from multi_agent.serializers.senior_dev_message_create_serializer import SeniorD
 from multi_agent.serializers.senior_dev_message_serializer import SeniorDevMessageSerializer
 from multi_agent.serializers.senior_dev_session_create_serializer import SeniorDevSessionCreateSerializer
 from multi_agent.serializers.senior_dev_session_serializer import SeniorDevSessionSerializer
+from multi_agent.serializers.senior_dev_session_update_serializer import SeniorDevSessionUpdateSerializer
 from multi_agent.serializers.senior_dev_tool_call_serializer import SeniorDevToolCallSerializer
 
 __all__ = [
@@ -13,5 +14,6 @@ __all__ = [
     'SeniorDevMessageSerializer',
     'SeniorDevSessionCreateSerializer',
     'SeniorDevSessionSerializer',
+    'SeniorDevSessionUpdateSerializer',
     'SeniorDevToolCallSerializer',
 ]

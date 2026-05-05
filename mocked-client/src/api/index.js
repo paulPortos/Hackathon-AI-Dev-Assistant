@@ -33,6 +33,8 @@ export const api = {
   createSeniorSession: (data) =>
     apiRequest(apiPaths.srDevSessions, { method: 'POST', body: data }),
   getSeniorSession: (sessionId) => apiRequest(apiPaths.srDevSession(sessionId)),
+  updateSeniorSession: (sessionId, data) =>
+    apiRequest(apiPaths.srDevSession(sessionId), { method: 'PATCH', body: data }),
   listSeniorMessages: (sessionId) => apiRequest(apiPaths.srDevMessages(sessionId)),
   sendSeniorMessage: (sessionId, data, isForm = false) =>
     apiRequest(apiPaths.srDevMessages(sessionId), { method: 'POST', body: data, isForm }),

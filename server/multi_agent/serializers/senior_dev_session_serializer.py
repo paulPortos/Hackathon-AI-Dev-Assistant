@@ -13,6 +13,7 @@ class SeniorDevSessionSerializer(serializers.ModelSerializer):
             'project_id',
             'project_name',
             'user_id',
+            'name',
             'commit_sha',
             'branch_name',
             'status',

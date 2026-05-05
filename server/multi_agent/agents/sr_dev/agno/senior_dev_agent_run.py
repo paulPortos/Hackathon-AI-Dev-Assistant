@@ -1,5 +1,5 @@
 from agno.agent import Agent
-from agno.models.google import Gemini
+from agno.models.ollama import Ollama
 from django.conf import settings
 
 from multi_agent.agents.sr_dev.prompts.senior_dev_agent_instructions import senior_dev_agent_instructions
@@ -10,7 +10,11 @@ def senior_dev_agent_run(*, session, user_message, tools):
 
     agent = Agent(
         name='Senior Dev Agent',
-        model=Gemini(id=settings.SR_DEV_AGENT_MODEL),
+        model=Ollama(
+            id=settings.SR_DEV_AGENT_MODEL,
+            host=settings.OLLAMA_HOST,
+            api_key=settings.OLLAMA_API_KEY,
+        ),
         tools=tools,
         markdown=False,
         tool_call_limit=settings.SR_DEV_TOOL_CALL_LIMIT,

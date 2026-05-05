@@ -1,5 +1,5 @@
 from agno.agent import Agent
-from agno.models.google import Gemini
+from agno.models.ollama import Ollama
 import json
 
 from django.conf import settings
@@ -23,7 +23,11 @@ def senior_dev_parser_run(*, session, user_message, assistant_text, tool_call_su
 
     agent = Agent(
         name='Senior Dev Structured Parser',
-        model=Gemini(id=settings.SR_DEV_AGENT_MODEL),
+        model=Ollama(
+            id=settings.SR_DEV_AGENT_MODEL,
+            host=settings.OLLAMA_HOST,
+            api_key=settings.OLLAMA_API_KEY,
+        ),
         output_schema=SeniorDevParserOutput,
         tools=[],
         markdown=False,

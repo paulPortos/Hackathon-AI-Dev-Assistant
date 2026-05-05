@@ -9,6 +9,7 @@ class SeniorDevSession(models.Model):
 
     project = models.ForeignKey('projects.Project', on_delete=models.CASCADE, related_name='senior_dev_sessions')
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='senior_dev_sessions')
+    name = models.CharField(max_length=255, blank=True, default='')
     commit_sha = models.CharField(max_length=255)
     branch_name = models.CharField(max_length=255, blank=True)
     status = models.CharField(max_length=32, choices=Status.choices, default=Status.ACTIVE)

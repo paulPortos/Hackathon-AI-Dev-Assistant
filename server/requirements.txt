@@ -1,5 +1,6 @@
 Django==4.2.30
 channels==4.1.0
+daphne==4.1.2
 djangorestframework==3.16.1
 djangorestframework-simplejwt[crypto]==5.5.1
 python-dotenv==1.1.1
@@ -10,4 +11,5 @@ argon2-cffi==25.1.0
 cryptography==47.0.0
 agno==2.1.10
 google-genai==1.47.0
+ollama==0.4.4
 django-cors-headers==4.7.0
