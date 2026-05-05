@@ -7,10 +7,14 @@ from users.services.github_token_update_from_data import github_token_update_fro
 
 
 @transaction.atomic
-def github_access_token_get_valid(user):
+def github_access_token_get_valid(
+    user,
+    *,
+    missing_message='GitHub account must be connected before reading repository code',
+):
     user = user.__class__.objects.select_for_update().get(id=user.id)
     if not user.access_token:
-        raise GitHubTokenError('github_token_missing', 'GitHub account must be connected before reading repository code')
+        raise GitHubTokenError('github_token_missing', missing_message)
 
     refresh_threshold = timezone.now() + timezone.timedelta(minutes=2)
     if user.github_access_token_expires_at and user.github_access_token_expires_at <= refresh_threshold:

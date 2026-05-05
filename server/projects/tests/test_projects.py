@@ -22,6 +22,7 @@ from users.models import User
 
 
 project_import_service_module = importlib.import_module('projects.services.project_import_from_github')
+project_github_repository_list_service_module = importlib.import_module('projects.services.project_github_repository_list')
 project_meeting_reminder_send_service_module = importlib.import_module('projects.services.project_meeting_reminder_send')
 project_repository_branch_list_service_module = importlib.import_module('projects.services.project_repository_branch_list')
 
@@ -162,6 +163,93 @@ class ProjectTests(TestCase):
         payload = response.json()
         self.assertEqual(payload['count'], 1)
         self.assertEqual(payload['results'][0]['id'], visible_project.id)
+
+    def test_github_repository_list_returns_paginated_repositories(self):
+        with patch.object(
+            project_github_repository_list_service_module,
+            'fetch_github_repository_list',
+        ) as fetch_repositories:
+            fetch_repositories.return_value = [
+                {
+                    'id': 123,
+                    'name': 'hello-world',
+                    'full_name': 'octocat/hello-world',
+                    'owner': {
+                        'login': 'octocat',
+                        'avatar_url': 'https://avatars.githubusercontent.com/u/1',
+                    },
+                    'html_url': 'https://github.com/octocat/hello-world',
+                    'clone_url': 'https://github.com/octocat/hello-world.git',
+                    'default_branch': 'main',
+                    'visibility': 'public',
+                    'language': 'Python',
+                    'description': 'A test repository',
+                    'private': False,
+                    'fork': False,
+                    'archived': False,
+                    'updated_at': '2026-05-04T12:00:00Z',
+                },
+                {
+                    'id': 456,
+                    'name': 'private-world',
+                    'full_name': 'octocat/private-world',
+                    'owner': {'login': 'octocat'},
+                    'html_url': 'https://github.com/octocat/private-world',
+                    'private': True,
+                    'fork': True,
+                    'archived': True,
+                },
+            ]
+
+            response = self.client.get(
+                reverse('api:projects:github-repository-list', kwargs={'version': 'v1'}),
+                **self.auth_header(self.creator),
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        payload = response.json()
+        self.assertEqual(payload['count'], 2)
+        self.assertEqual(payload['results'][0]['github_repo_id'], 123)
+        self.assertEqual(payload['results'][0]['full_name'], 'octocat/hello-world')
+        self.assertEqual(payload['results'][0]['owner_login'], 'octocat')
+        self.assertEqual(payload['results'][0]['primary_language'], 'Python')
+        self.assertFalse(payload['results'][0]['is_private'])
+        self.assertTrue(payload['results'][1]['is_private'])
+        self.assertNotIn('access_token', payload['results'][0])
+        fetch_repositories.assert_called_once_with(access_token='creator-github-token')
+
+    def test_github_repository_list_requires_connected_token(self):
+        self.creator.access_token = ''
+        self.creator.save(update_fields=['access_token', 'updated_at'])
+
+        with patch.object(
+            project_github_repository_list_service_module,
+            'fetch_github_repository_list',
+        ) as fetch_repositories:
+            response = self.client.get(
+                reverse('api:projects:github-repository-list', kwargs={'version': 'v1'}),
+                **self.auth_header(self.creator),
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.json()['detail'], 'GitHub account must be connected before listing repositories')
+        self.assertEqual(response.json()['code'], 'github_token_missing')
+        fetch_repositories.assert_not_called()
+
+    def test_github_repository_list_rejects_malformed_github_payload(self):
+        with patch.object(
+            project_github_repository_list_service_module,
+            'fetch_github_repository_list',
+        ) as fetch_repositories:
+            fetch_repositories.return_value = [{'name': 'missing-required-fields'}]
+
+            response = self.client.get(
+                reverse('api:projects:github-repository-list', kwargs={'version': 'v1'}),
+                **self.auth_header(self.creator),
+            )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.json()['detail'], 'GitHub repository list fetch returned an invalid response')
 
     def test_project_repository_branch_list_returns_default_branch_and_commit_shas(self):
         project = self.create_project()

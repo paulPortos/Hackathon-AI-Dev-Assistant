@@ -1,6 +1,12 @@
 from django.urls import path
 
-from users.views import GitHubCallbackView, GitHubLoginView, MeView, UserPublicDetailView
+from users.views import (
+    GitHubCallbackView,
+    GitHubLoginView,
+    MeView,
+    UserPublicDetailView,
+    UserSearchView,
+)
 
 
 app_name = 'users'
@@ -10,6 +16,11 @@ urlpatterns = [
         'me/',
         MeView.as_view(),
         name='current-user-detail'
+    ),
+    path(
+        'search/',
+        UserSearchView.as_view(),
+        name='user-search'
     ),
     path(
         '<int:user_id>/',

@@ -3,6 +3,7 @@ from django.urls import path
 from projects.views import (
     ProjectAuditLogListView,
     ProjectDetailView,
+    ProjectGitHubRepositoryListView,
     ProjectImportFromGitHubView,
     ProjectListView,
     ProjectMeetingSettingsView,
@@ -28,6 +29,11 @@ urlpatterns = [
         'import-from-github/',
         ProjectImportFromGitHubView.as_view(),
         name='project-import-from-github'
+    ),
+    path(
+        'github/repositories/',
+        ProjectGitHubRepositoryListView.as_view(),
+        name='github-repository-list'
     ),
     path(
         '<int:project_id>/',

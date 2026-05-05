@@ -1,3 +1,4 @@
+from projects.serializers.github_repository_serializer import GitHubRepositorySerializer
 from projects.serializers.project_audit_log_serializer import ProjectAuditLogSerializer
 from projects.serializers.project_import_from_github_serializer import ProjectImportFromGitHubSerializer
 from projects.serializers.project_meeting_settings_serializer import ProjectMeetingSettingsSerializer
@@ -14,6 +15,7 @@ from projects.serializers.project_vulnerability_serializer import ProjectVulnera
 
 __all__ = [
     'ProjectAuditLogSerializer',
+    'GitHubRepositorySerializer',
     'ProjectImportFromGitHubSerializer',
     'ProjectMeetingSettingsSerializer',
     'ProjectMemberInviteSerializer',

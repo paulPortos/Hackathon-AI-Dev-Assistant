@@ -1,8 +1,10 @@
 import secrets
+from urllib.parse import urlencode
 
+from django.conf import settings
+from django.http import HttpResponseRedirect
 from rest_framework.exceptions import AuthenticationFailed, ValidationError
 from rest_framework.permissions import AllowAny
-from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from users.github import (
@@ -12,7 +14,6 @@ from users.github import (
     fetch_github_user,
     select_email,
 )
-from users.serializers import UserSerializer
 from users.services import get_tokens_for_user, user_create_or_update_from_github
 from users.views.constants import GITHUB_OAUTH_STATE_SESSION_KEY
 
@@ -53,4 +54,9 @@ class GitHubCallbackView(APIView):
             raise ValidationError({'detail': str(exc)}) from exc
 
         tokens = get_tokens_for_user(user)
-        return Response({'access': tokens['access'], 'refresh': tokens['refresh'], 'user': UserSerializer(user).data})
+
+        params = urlencode({
+            'access': tokens['access'],
+            'refresh': tokens['refresh'],
+        })
+        return HttpResponseRedirect(f"{settings.FRONTEND_URL}/login?{params}")

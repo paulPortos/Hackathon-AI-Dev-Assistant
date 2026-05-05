@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'corsheaders',
     'rest_framework',
     'rest_framework_simplejwt',
     'multi_agent',
@@ -52,6 +53,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'config.middleware.request_id_middleware.RequestIdMiddleware',
     'config.middleware.security_audit_middleware.SecurityAuditMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -61,6 +63,13 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+]
+
+CORS_ALLOW_CREDENTIALS = True
 
 ROOT_URLCONF = 'config.urls'
 
@@ -124,6 +133,7 @@ AUTH_PASSWORD_VALIDATORS = [
 GITHUB_CLIENT_ID = env('GITHUB_CLIENT_ID', required=True)
 GITHUB_CLIENT_SECRET = env('GITHUB_CLIENT_SECRET', required=True)
 GITHUB_CALLBACK_URL = env('GITHUB_CALLBACK_URL', 'http://localhost:8000/auth/github/callback/')
+FRONTEND_URL = env('FRONTEND_URL', 'http://localhost:5173')
 GITHUB_PRIVATE_KEY_PATH = env('GITHUB_PRIVATE_KEY_PATH')
 GITHUB_TOKEN_ENCRYPTION_KEY = env('GITHUB_TOKEN_ENCRYPTION_KEY', required=True)
 
@@ -132,11 +142,11 @@ TWILLIO_SENDGRID_FROM_EMAIL = env('TWILLIO_SENDGRID_FROM_EMAIL')
 TWILLIO_SENDGRID_FROM_NAME = env('TWILLIO_SENDGRID_FROM_NAME', 'AI Dev Assistant')
 
 GOOGLE_API_KEY = env('GOOGLE_API_KEY')
-SR_DEV_AGENT_MODEL = env('SR_DEV_AGENT_MODEL', 'gemini-3-flash-preview')
+SR_DEV_AGENT_MODEL = env('SR_DEV_AGENT_MODEL', 'gemini-1.5-flash')
 SR_DEV_STT_MODEL = env('SR_DEV_STT_MODEL', 'gemini-2.0-flash-001')
 SR_DEV_AUDIO_MAX_MB = int(env('SR_DEV_AUDIO_MAX_MB', '10'))
 SR_DEV_TOOL_CALL_LIMIT = int(env('SR_DEV_TOOL_CALL_LIMIT', '8'))
-PROJECT_MANAGER_AGENT_MODEL = env('PROJECT_MANAGER_AGENT_MODEL', 'gemini-3-flash-preview')
+PROJECT_MANAGER_AGENT_MODEL = env('PROJECT_MANAGER_AGENT_MODEL', 'gemini-1.5-flash')
 PROJECT_MANAGER_CONFIDENCE_THRESHOLD = int(env('PROJECT_MANAGER_CONFIDENCE_THRESHOLD', '75'))
 
 SECURITY_AUDIT_BODY_MAX_BYTES = int(env('SECURITY_AUDIT_BODY_MAX_BYTES', '8192'))

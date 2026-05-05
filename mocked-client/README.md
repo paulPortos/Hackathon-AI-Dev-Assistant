@@ -1,0 +1,69 @@
+# Mocked Client (React)
+
+This folder provides a UI scaffold for the Hackathon AI Dev Assistant server. It is built to show the backend integration points clearly while still giving the team a working front end layout.
+
+## Quick start
+1. cd mocked-client
+2. npm install
+3. npm run dev
+
+## Env
+- VITE_API_BASE_URL (default: http://localhost:8000)
+- VITE_API_VERSION (default: v1)
+
+## GitHub OAuth flow (backend is the source of truth)
+1. Start at /auth/github/login/ (backend, not /api).
+2. GitHub redirects to /auth/github/callback/.
+3. Callback returns JSON: { access, refresh, user }.
+4. Paste that JSON into the Login page to store tokens.
+
+For production, consider adding a backend redirect to the frontend with tokens, or serve the SPA from the same domain so it can read the callback response.
+
+## Auth header
+Authorization: Bearer <access>
+
+## Token refresh
+POST /api/v1/auth/tokens/refresh/ { "refresh": "..." }
+
+## Endpoints by page
+Login
+- GET /auth/github/login/
+- GET /auth/github/callback/
+
+Home
+- GET /api/v1/projects/
+- POST /api/v1/projects/import-from-github/ { repository }
+
+Projects
+- GET /api/v1/projects/github/repositories/
+
+Profile
+- GET /api/v1/users/me/
+- GET /api/v1/user-descriptions/current-user/
+- PATCH /api/v1/user-descriptions/current-user/
+
+Project
+- GET /api/v1/projects/<id>/
+- GET /api/v1/projects/<id>/tasks/
+- GET /api/v1/projects/<id>/vulnerabilities/
+- GET /api/v1/projects/<id>/members/
+- POST /api/v1/projects/<id>/members/ { user_id, display_role, roles }
+- PATCH /api/v1/projects/<id>/members/<member_id>/
+- DELETE /api/v1/projects/<id>/members/<member_id>/
+- GET /api/v1/projects/<id>/meeting-settings/
+- PUT or PATCH /api/v1/projects/<id>/meeting-settings/
+- GET /api/v1/projects/<id>/repository/branches/
+- GET /api/v1/users/search/?q=
+- GET /api/v1/users/<id>/
+- GET /api/v1/user-descriptions/users/<id>/
+
+Senior Dev
+- GET /api/v1/agents/sr-dev/sessions/
+- POST /api/v1/agents/sr-dev/sessions/ { project_id, commit_sha, branch_name }
+- GET /api/v1/agents/sr-dev/sessions/<id>/
+- GET /api/v1/agents/sr-dev/sessions/<id>/messages/
+- POST /api/v1/agents/sr-dev/sessions/<id>/messages/ { input_type, text | choice | choice_payload | audio }
+
+## Notes for integration
+- The server uses JWT (access + refresh). Store both and attach the access token to every API request.
+- List endpoints may be paginated. The UI normalizes data.results when present.

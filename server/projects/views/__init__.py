@@ -1,5 +1,6 @@
 from projects.views.project_audit_log_list_view import ProjectAuditLogListView
 from projects.views.project_detail_view import ProjectDetailView
+from projects.views.project_github_repository_list_view import ProjectGitHubRepositoryListView
 from projects.views.project_import_from_github_view import ProjectImportFromGitHubView
 from projects.views.project_list_view import ProjectListView
 from projects.views.project_meeting_settings_view import ProjectMeetingSettingsView
@@ -14,6 +15,7 @@ from projects.views.project_vulnerability_list_view import ProjectVulnerabilityL
 __all__ = [
     'ProjectAuditLogListView',
     'ProjectDetailView',
+    'ProjectGitHubRepositoryListView',
     'ProjectImportFromGitHubView',
     'ProjectListView',
     'ProjectMeetingSettingsView',

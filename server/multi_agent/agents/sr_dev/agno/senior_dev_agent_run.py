@@ -1,14 +1,12 @@
+from agno.agent import Agent
+from agno.models.google import Gemini
 from django.conf import settings
 
 from multi_agent.agents.sr_dev.prompts.senior_dev_agent_instructions import senior_dev_agent_instructions
 
 
 def senior_dev_agent_run(*, session, user_message, tools):
-    try:
-        from agno.agent import Agent
-        from agno.models.google import Gemini
-    except ImportError as exc:
-        raise ValueError('Agno dependencies are not installed') from exc
+    """Executes the Senior Dev agent to process messages with repository tool access."""
 
     agent = Agent(
         name='Senior Dev Agent',
@@ -17,6 +15,7 @@ def senior_dev_agent_run(*, session, user_message, tools):
         markdown=False,
         tool_call_limit=settings.SR_DEV_TOOL_CALL_LIMIT,
         instructions=senior_dev_agent_instructions(),
+        debug_mode=True,
     )
     prompt = (
         f'Project ID: {session.project_id}\n'

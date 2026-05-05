@@ -1,4 +1,5 @@
 from projects.services.project_audit_log_create import project_audit_log_create
+from projects.services.project_github_repository_list import project_github_repository_list
 from projects.services.project_import_from_github import project_import_from_github
 from projects.services.project_meeting_reminder_build_email_message import project_meeting_reminder_build_email_message
 from projects.services.project_meeting_reminder_send import project_meeting_reminder_send
@@ -23,6 +24,7 @@ from projects.services.project_vulnerability_mark_resolved import project_vulner
 
 __all__ = [
     'project_audit_log_create',
+    'project_github_repository_list',
     'project_import_from_github',
     'project_meeting_reminder_build_email_message',
     'project_meeting_reminder_send',

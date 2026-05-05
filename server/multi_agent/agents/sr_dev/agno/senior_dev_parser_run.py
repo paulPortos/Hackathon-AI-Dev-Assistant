@@ -1,3 +1,5 @@
+from agno.agent import Agent
+from agno.models.google import Gemini
 import json
 
 from django.conf import settings
@@ -7,6 +9,7 @@ from multi_agent.agents.sr_dev.schemas import SeniorDevParserOutput
 
 
 def senior_dev_parser_run(*, session, user_message, assistant_text, tool_call_summary):
+    """Executes a structured parser agent to extract data from a conversation turn."""
     def normalize_output(value):
         if isinstance(value, SeniorDevParserOutput):
             return value.model_dump()
@@ -17,12 +20,6 @@ def senior_dev_parser_run(*, session, user_message, assistant_text, tool_call_su
         if isinstance(value, str):
             return SeniorDevParserOutput(**json.loads(value)).model_dump()
         raise ValueError('Senior Dev parser returned an unsupported response')
-
-    try:
-        from agno.agent import Agent
-        from agno.models.google import Gemini
-    except ImportError as exc:
-        raise ValueError('Agno dependencies are not installed') from exc
 
     agent = Agent(
         name='Senior Dev Structured Parser',

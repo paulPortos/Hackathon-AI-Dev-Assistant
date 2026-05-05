@@ -9,3 +9,4 @@ argon2-cffi==25.1.0
 cryptography==47.0.0
 agno==2.1.10
 google-genai==1.47.0
+django-cors-headers==4.7.0

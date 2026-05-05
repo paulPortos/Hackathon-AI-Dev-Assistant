@@ -77,8 +77,13 @@ def senior_dev_scoped_tools_create(*, session, message):
             ),
         )
 
-    def prepare_pm_handoff(conversation_summary: str, findings: list):
-        """Prepare a PM handoff without creating tasks or vulnerabilities."""
+    def prepare_pm_handoff(conversation_summary: str, findings: list[dict]):
+        """Prepare a PM handoff without creating tasks or vulnerabilities.
+
+        Args:
+            conversation_summary (str): A detailed summary of the senior dev check-in.
+            findings (list[dict]): A list of findings to hand off, each containing 'title' and 'detail'.
+        """
         input_payload = {
             'conversation_summary': conversation_summary,
             'finding_count': len(findings or []),

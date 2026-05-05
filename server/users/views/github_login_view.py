@@ -15,5 +15,6 @@ class GitHubLoginView(APIView):
     def get(self, request):
         state = secrets.token_urlsafe(32)
         request.session[GITHUB_OAUTH_STATE_SESSION_KEY] = state
+        request.session.save()
         request.session.modified = True
         return HttpResponseRedirect(build_github_authorization_url(state=state))
