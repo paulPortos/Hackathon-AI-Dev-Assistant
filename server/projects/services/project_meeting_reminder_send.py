@@ -5,7 +5,7 @@ from projects.services.project_meeting_reminder_build_email_message import proje
 
 
 def project_meeting_reminder_send(*, meeting_settings, current_datetime=None):
-    message = project_meeting_reminder_build_email_message(meeting_settings)
+    message = project_meeting_reminder_build_email_message(meeting_settings, current_datetime=current_datetime)
     if not message['to_emails']:
         raise ValueError('Project has no member emails to notify')
 

@@ -7,6 +7,7 @@ from projects.providers import GitHubRepositoryError
 from projects.selectors import project_get_for_member
 from projects.serializers import ProjectRepositoryBranchListSerializer
 from projects.services import project_repository_branch_list
+from users.services import GitHubTokenError
 
 
 class ProjectRepositoryBranchListView(APIView):
@@ -20,6 +21,8 @@ class ProjectRepositoryBranchListView(APIView):
             branch_context = project_repository_branch_list(project)
         except GitHubRepositoryError as exc:
             raise ValidationError({'detail': str(exc)}) from exc
+        except GitHubTokenError as exc:
+            raise ValidationError({'detail': str(exc), 'code': exc.code}) from exc
         except ValueError as exc:
             raise ValidationError({'detail': str(exc)}) from exc
 

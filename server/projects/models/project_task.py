@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Q
 
 
 class ProjectTask(models.Model):
@@ -45,12 +46,27 @@ class ProjectTask(models.Model):
     status = models.CharField(max_length=32, choices=Status.choices, default=Status.TODO)
     created_by_agent = models.CharField(max_length=255, blank=True)
     reasoning = models.TextField(blank=True)
+    confidence_score = models.PositiveSmallIntegerField(blank=True, null=True)
+    confidence_reason = models.TextField(blank=True)
+    evidence = models.JSONField(default=list, blank=True)
+    agent_source_key = models.CharField(max_length=255, blank=True, db_index=True)
     due_date = models.DateField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ['-created_at', 'id']
+        constraints = [
+            models.CheckConstraint(
+                check=Q(confidence_score__isnull=True) | (Q(confidence_score__gte=0) & Q(confidence_score__lte=100)),
+                name='project_task_confidence_score_0_100',
+            ),
+            models.UniqueConstraint(
+                fields=['project', 'agent_source_key'],
+                condition=~Q(agent_source_key=''),
+                name='unique_project_task_agent_source_key',
+            ),
+        ]
 
     def __str__(self):
         return self.title

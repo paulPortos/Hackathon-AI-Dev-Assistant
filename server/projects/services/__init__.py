@@ -7,8 +7,13 @@ from projects.services.project_member_delete import project_member_delete
 from projects.services.project_member_invite import project_member_invite
 from projects.services.project_member_update import project_member_update
 from projects.services.project_repository_branch_list import project_repository_branch_list
+from projects.services.project_scrum_summary_build import project_scrum_summary_build
+from projects.services.project_task_agent_source_key_build import project_task_agent_source_key_build
+from projects.services.project_task_confidence_normalize import project_task_confidence_normalize
 from projects.services.project_task_create import project_task_create
+from projects.services.project_task_create_or_get_from_agent import project_task_create_or_get_from_agent
 from projects.services.project_task_delete import project_task_delete
+from projects.services.project_task_evidence_normalize import project_task_evidence_normalize
 from projects.services.project_task_status_update import project_task_status_update
 from projects.services.project_task_update import project_task_update
 from projects.services.project_update_context import project_update_context
@@ -26,8 +31,13 @@ __all__ = [
     'project_member_invite',
     'project_member_update',
     'project_repository_branch_list',
+    'project_scrum_summary_build',
+    'project_task_agent_source_key_build',
+    'project_task_confidence_normalize',
     'project_task_create',
+    'project_task_create_or_get_from_agent',
     'project_task_delete',
+    'project_task_evidence_normalize',
     'project_task_status_update',
     'project_task_update',
     'project_update_context',

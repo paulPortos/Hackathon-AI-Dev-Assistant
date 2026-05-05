@@ -50,9 +50,14 @@ class GitHubOAuthTests(TestCase):
 
     @patch('users.views.github_callback_view.fetch_github_emails')
     @patch('users.views.github_callback_view.fetch_github_user')
-    @patch('users.views.github_callback_view.exchange_code_for_access_token')
+    @patch('users.views.github_callback_view.exchange_code_for_token_data')
     def test_callback_creates_user_and_returns_tokens(self, exchange_code, fetch_user, fetch_emails):
-        exchange_code.return_value = 'github-token'
+        exchange_code.return_value = {
+            'access_token': 'github-token',
+            'refresh_token': 'github-refresh-token',
+            'expires_in': 28800,
+            'refresh_token_expires_in': 15897600,
+        }
         fetch_user.return_value = {
             'id': 123,
             'login': 'octocat',
@@ -82,13 +87,16 @@ class GitHubOAuthTests(TestCase):
         self.assertEqual(user.name, 'Octo Cat')
         self.assertEqual(user.email, 'octocat@example.com')
         self.assertEqual(user.access_token, 'github-token')
+        self.assertEqual(user.github_refresh_token, 'github-refresh-token')
+        self.assertIsNotNone(user.github_access_token_expires_at)
+        self.assertIsNotNone(user.github_refresh_token_expires_at)
 
     @patch('users.views.github_callback_view.fetch_github_emails')
     @patch('users.views.github_callback_view.fetch_github_user')
-    @patch('users.views.github_callback_view.exchange_code_for_access_token')
+    @patch('users.views.github_callback_view.exchange_code_for_token_data')
     def test_callback_updates_existing_user(self, exchange_code, fetch_user, fetch_emails):
         User.objects.create_user(github_id='123', username='old', email='old@example.com')
-        exchange_code.return_value = 'new-token'
+        exchange_code.return_value = {'access_token': 'new-token'}
         fetch_user.return_value = {
             'id': 123,
             'login': 'new-login',

@@ -3,15 +3,15 @@ from django.db import transaction
 from projects.models import Project, ProjectMember
 from projects.providers import fetch_github_repository, fetch_github_repository_languages
 from projects.services.project_update_github_metadata import project_update_github_metadata
+from users.services import github_access_token_get_valid
 
 
 @transaction.atomic
 def project_import_from_github(*, creator, repository):
-    if not creator.access_token:
-        raise ValueError('GitHub account must be connected before importing repositories')
+    access_token = github_access_token_get_valid(creator)
 
-    github_repo = fetch_github_repository(access_token=creator.access_token, repository=repository)
-    github_languages = fetch_github_repository_languages(access_token=creator.access_token, repository=repository)
+    github_repo = fetch_github_repository(access_token=access_token, repository=repository)
+    github_languages = fetch_github_repository_languages(access_token=access_token, repository=repository)
 
     github_repo_id = github_repo.get('id')
     github_full_name = github_repo.get('full_name')

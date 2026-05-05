@@ -5,6 +5,7 @@ from users.urls import auth_urlpatterns
 
 
 api_urlpatterns = [
+    path('agents/', include(('multi_agent.urls', 'multi_agent'), namespace='agents')),
     path('auth/tokens/refresh/', TokenRefreshView.as_view(), name='auth-token-refresh'),
     path('auth/tokens/verify/', TokenVerifyView.as_view(), name='auth-token-verify'),
     path('projects/', include(('projects.urls', 'projects'), namespace='projects')),

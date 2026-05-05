@@ -5,6 +5,7 @@ from rest_framework.views import APIView
 from projects.providers import GitHubRepositoryError
 from projects.serializers import ProjectImportFromGitHubSerializer, ProjectSerializer
 from projects.services import project_import_from_github
+from users.services import GitHubTokenError
 
 
 class ProjectImportFromGitHubView(APIView):
@@ -19,6 +20,8 @@ class ProjectImportFromGitHubView(APIView):
             )
         except GitHubRepositoryError as exc:
             raise ValidationError({'detail': str(exc)}) from exc
+        except GitHubTokenError as exc:
+            raise ValidationError({'detail': str(exc), 'code': exc.code}) from exc
         except ValueError as exc:
             raise ValidationError({'detail': str(exc)}) from exc
 

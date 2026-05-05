@@ -20,6 +20,10 @@ def project_task_create(*, project, data, actor_user=None, actor_agent=''):
         'status',
         'created_by_agent',
         'reasoning',
+        'confidence_score',
+        'confidence_reason',
+        'evidence',
+        'agent_source_key',
         'due_date',
     }
     create_data = {field: value for field, value in data.items() if field in allowed_fields}
@@ -40,6 +44,7 @@ def project_task_create(*, project, data, actor_user=None, actor_agent=''):
             'category': project_task.category,
             'priority': project_task.priority,
             'status': project_task.status,
+            'confidence_score': project_task.confidence_score,
             'due_date': project_task.due_date.isoformat() if project_task.due_date else None,
         },
     )

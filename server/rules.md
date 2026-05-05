@@ -52,6 +52,37 @@ app_name/
 - Package `__init__.py` files may re-export public classes and functions to keep imports stable.
 - Name files after the class or function they contain, using snake_case.
 
+## Agent Structure
+
+- Agent-specific code does not have to follow the app-layer folder structure.
+- Keep agent brains under `multi_agent/agents/`, grouped by agent identity:
+
+```text
+multi_agent/agents/
+  sr_dev/
+    prompts/
+    schemas/
+    agno/
+    tools/
+    workflows/
+  pm/
+    prompts/
+    schemas/
+    agno/
+    tools/
+    workflows/
+    validators/
+  scrum/
+    prompts/
+    schemas/
+    tools/
+    workflows/
+```
+
+- Put prompts, Agno setup, output schemas, validators, tool registration, and agent workflows inside the matching agent folder.
+- Keep Django models, migrations, views, serializers, selectors, and framework plumbing at the app level when needed.
+- Keep one top-level class or function per file inside agent packages.
+
 ## Layer Rules
 
 - Views orchestrate HTTP request and response handling only. They should validate request flow, call selectors/services/providers, and return serialized responses.

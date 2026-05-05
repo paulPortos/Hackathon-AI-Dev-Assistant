@@ -1,52 +1,23 @@
-from datetime import timedelta
 from html import escape
 
-from django.utils import timezone
-
-from projects.models import ProjectTask, ProjectVulnerability
+from projects.services.project_scrum_summary_build import project_scrum_summary_build
 
 
-def project_meeting_reminder_build_email_message(meeting_settings):
+def project_meeting_reminder_build_email_message(meeting_settings, current_datetime=None):
+    summary = project_scrum_summary_build(meeting_settings=meeting_settings, current_datetime=current_datetime)
     project = meeting_settings.project
-    members = list(project.members.select_related('user').all())
-    member_lines = []
-    assigned_task_lines = []
-
-    for member in members:
-        member_name = member.user.name or member.user.username
-        member_lines.append(f'- {member_name} ({member.display_role})')
-        member_tasks = ProjectTask.objects.filter(
-            project=project,
-            assigned_to=member,
-        ).exclude(status__in=[ProjectTask.Status.COMPLETED, ProjectTask.Status.CANCELED])
-        for task in member_tasks:
-            assigned_task_lines.append(f'- {member_name}: [{task.priority}] {task.title} ({task.status})')
-
-    open_task_lines = [
-        f'- [{task.priority}] {task.title} ({task.status})'
-        for task in ProjectTask.objects.filter(project=project).exclude(
-            status__in=[ProjectTask.Status.COMPLETED, ProjectTask.Status.CANCELED]
-        )[:20]
+    member_lines = [f"- {member['name']} ({member['display_role']})" for member in summary['members']]
+    assigned_task_lines = [
+        f"- {member['name']}: [{task['priority']}] {task['title']} ({task['status']})"
+        for member in summary['assigned_tasks_by_member']
+        for task in member['tasks']
     ]
-    blocked_task_lines = [
-        f'- {task.title}'
-        for task in ProjectTask.objects.filter(project=project, status=ProjectTask.Status.BLOCKED)[:20]
-    ]
-    recent_cutoff = timezone.now() - timedelta(days=7)
-    completed_task_lines = [
-        f'- {task.title}'
-        for task in ProjectTask.objects.filter(
-            project=project,
-            status=ProjectTask.Status.COMPLETED,
-            updated_at__gte=recent_cutoff,
-        )[:20]
-    ]
-    critical_vulnerability_lines = [
-        f'- {vulnerability.title}'
-        for vulnerability in ProjectVulnerability.objects.filter(
-            project=project,
-            severity=ProjectVulnerability.Severity.CRITICAL,
-        ).exclude(status__in=[ProjectVulnerability.Status.RESOLVED, ProjectVulnerability.Status.DISMISSED])[:20]
+    open_task_lines = [f"- [{task['priority']}] {task['title']} ({task['status']})" for task in summary['open_tasks'][:20]]
+    blocked_task_lines = [f"- {task['title']}" for task in summary['blockers'][:20]]
+    completed_task_lines = [f"- {task['title']}" for task in summary['recently_completed_tasks'][:20]]
+    vulnerability_lines = [
+        f"- [{vulnerability['severity']}] {vulnerability['title']}"
+        for vulnerability in summary['unresolved_vulnerabilities'][:20]
     ]
 
     sections = [
@@ -69,8 +40,8 @@ def project_meeting_reminder_build_email_message(meeting_settings):
         'Assigned tasks per member:',
         '\n'.join(assigned_task_lines) or 'No assigned open tasks.',
         '',
-        'Critical vulnerabilities:',
-        '\n'.join(critical_vulnerability_lines) or 'No critical vulnerabilities.',
+        'Unresolved vulnerabilities:',
+        '\n'.join(vulnerability_lines) or 'No unresolved vulnerabilities.',
         '',
         'Blocked tasks:',
         '\n'.join(blocked_task_lines) or 'No blocked tasks.',
@@ -85,5 +56,5 @@ def project_meeting_reminder_build_email_message(meeting_settings):
         'subject': f'Scrum reminder: {project.github_full_name}',
         'text_content': text_content,
         'html_content': html_content,
-        'to_emails': [member.user.email for member in members if member.user.email],
+        'to_emails': [member['email'] for member in summary['members'] if member['email']],
     }

@@ -1,0 +1,2 @@
+class AudioTranscriptionError(Exception):
+    pass

@@ -214,7 +214,8 @@ class ProjectTests(TestCase):
             )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.json()['detail'], 'Project creator does not have a connected GitHub token')
+        self.assertEqual(response.json()['detail'], 'GitHub account must be connected before reading repository code')
+        self.assertEqual(response.json()['code'], 'github_token_missing')
         fetch_branches.assert_not_called()
 
     def test_project_repository_branch_list_rejects_malformed_github_payload(self):

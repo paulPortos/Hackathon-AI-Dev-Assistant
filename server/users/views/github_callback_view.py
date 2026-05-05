@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 
 from users.github import (
     GitHubOAuthError,
-    exchange_code_for_access_token,
+    exchange_code_for_token_data,
     fetch_github_emails,
     fetch_github_user,
     select_email,
@@ -36,13 +36,15 @@ class GitHubCallbackView(APIView):
             raise ValidationError({'detail': 'Missing GitHub OAuth code'})
 
         try:
-            access_token = exchange_code_for_access_token(code=code)
+            token_data = exchange_code_for_token_data(code=code)
+            access_token = token_data['access_token']
             github_user = fetch_github_user(access_token=access_token)
             github_emails = fetch_github_emails(access_token=access_token)
             email = select_email(github_user=github_user, github_emails=github_emails)
             user = user_create_or_update_from_github(
                 github_user=github_user,
                 access_token=access_token,
+                token_data=token_data,
                 email=email,
             )
         except GitHubOAuthError as exc:

@@ -20,6 +20,10 @@ def project_task_update(*, project_task, data, actor_user=None, actor_agent=''):
         'status',
         'created_by_agent',
         'reasoning',
+        'confidence_score',
+        'confidence_reason',
+        'evidence',
+        'agent_source_key',
         'due_date',
     }
     update_fields = []
@@ -33,6 +37,10 @@ def project_task_update(*, project_task, data, actor_user=None, actor_agent=''):
         'status': project_task.status,
         'created_by_agent': project_task.created_by_agent,
         'reasoning': project_task.reasoning,
+        'confidence_score': project_task.confidence_score,
+        'confidence_reason': project_task.confidence_reason,
+        'evidence': project_task.evidence,
+        'agent_source_key': project_task.agent_source_key,
         'due_date': project_task.due_date.isoformat() if project_task.due_date else None,
     }
 
@@ -54,6 +62,10 @@ def project_task_update(*, project_task, data, actor_user=None, actor_agent=''):
             'status': project_task.status,
             'created_by_agent': project_task.created_by_agent,
             'reasoning': project_task.reasoning,
+            'confidence_score': project_task.confidence_score,
+            'confidence_reason': project_task.confidence_reason,
+            'evidence': project_task.evidence,
+            'agent_source_key': project_task.agent_source_key,
             'due_date': project_task.due_date.isoformat() if project_task.due_date else None,
         }
         changed_fields = [field for field in previous_values if previous_values[field] != current_values[field]]

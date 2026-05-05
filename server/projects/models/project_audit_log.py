@@ -12,6 +12,7 @@ class ProjectAuditLog(models.Model):
         TASK_STATUS_CHANGED = 'task_status_changed', 'Task status changed'
         TASK_DUE_DATE_CHANGED = 'task_due_date_changed', 'Task due date changed'
         TASK_DELETED = 'task_deleted', 'Task deleted'
+        VULNERABILITY_CREATED = 'vulnerability_created', 'Vulnerability created'
         VULNERABILITY_RESOLVED = 'vulnerability_resolved', 'Vulnerability resolved'
 
     class TargetType(models.TextChoices):

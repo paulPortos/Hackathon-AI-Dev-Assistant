@@ -1,12 +1,12 @@
 from projects.providers import fetch_github_repository_branches
+from users.services import github_access_token_get_valid
 
 
 def project_repository_branch_list(project):
-    if not project.creator.access_token:
-        raise ValueError('Project creator does not have a connected GitHub token')
+    access_token = github_access_token_get_valid(project.creator)
 
     branches = fetch_github_repository_branches(
-        access_token=project.creator.access_token,
+        access_token=access_token,
         repository=project.github_full_name,
     )
 
