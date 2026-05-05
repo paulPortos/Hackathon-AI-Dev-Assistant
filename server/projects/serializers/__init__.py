@@ -1,7 +1,6 @@
 from projects.serializers.github_repository_serializer import GitHubRepositorySerializer
 from projects.serializers.project_audit_log_serializer import ProjectAuditLogSerializer
 from projects.serializers.project_import_from_github_serializer import ProjectImportFromGitHubSerializer
-from projects.serializers.project_meeting_settings_serializer import ProjectMeetingSettingsSerializer
 from projects.serializers.project_member_invite_serializer import ProjectMemberInviteSerializer
 from projects.serializers.project_member_role_serializer import ProjectMemberRoleSerializer
 from projects.serializers.project_member_serializer import ProjectMemberSerializer
@@ -17,7 +16,6 @@ __all__ = [
     'ProjectAuditLogSerializer',
     'GitHubRepositorySerializer',
     'ProjectImportFromGitHubSerializer',
-    'ProjectMeetingSettingsSerializer',
     'ProjectMemberInviteSerializer',
     'ProjectMemberRoleSerializer',
     'ProjectMemberSerializer',

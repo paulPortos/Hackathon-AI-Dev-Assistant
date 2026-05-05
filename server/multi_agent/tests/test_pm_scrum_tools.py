@@ -9,18 +9,19 @@ from multi_agent.agents.pm.tools import (
     pm_assign_task_to_best_member,
     pm_get_project_context,
 )
-from multi_agent.agents.scrum.tools import (
+from scrum.agents.scrum.tools import (
     scrum_generate_meeting_summary,
     scrum_get_meeting_settings,
     scrum_send_due_reminder_emails,
 )
-from projects.models import Project, ProjectAuditLog, ProjectMeetingSettings, ProjectMember, ProjectTask, ProjectVulnerability
+from projects.models import Project, ProjectAuditLog, ProjectMember, ProjectTask, ProjectVulnerability
+from scrum.models import ProjectMeetingSettings
 from projects.services import project_task_create, project_vulnerability_create
 from user_descriptions.models import UserDescription
 from users.models import User
 
 
-scrum_send_due_reminder_emails_module = import_module('multi_agent.agents.scrum.tools.scrum_send_due_reminder_emails')
+scrum_send_due_reminder_emails_module = import_module('scrum.agents.scrum.tools.scrum_send_due_reminder_emails')
 
 
 class PmAndScrumToolTests(TestCase):

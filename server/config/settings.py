@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'projects',
     'users',
     'user_descriptions',
+    'scrum',
 ]
 
 MIDDLEWARE = [
@@ -97,11 +98,14 @@ ASGI_APPLICATION = 'config.asgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': env('POSTGRES_DB', required=True),
-        'USER': env('POSTGRES_USER', required=True),
-        'PASSWORD': env('POSTGRES_PASSWORD', required=True),
-        'HOST': env('POSTGRES_HOST', 'localhost'),
-        'PORT': env('POSTGRES_PORT', '5432'),
+        'NAME': 'hackathon',
+        'USER': 'finteqadmin',
+        'PASSWORD': r'_]z+tim.;E@yFAKG',
+        'HOST': 'coredb0000.postgres.database.azure.com',
+        'PORT': '5432',
+        'OPTIONS': {
+            'sslmode': 'require',
+        }
     }
 }
 

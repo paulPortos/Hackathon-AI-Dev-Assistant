@@ -1,7 +1,10 @@
 # OS / editor
 .DS_Store
+Thumbs.db
 .vscode/
 .idea/
+*.swp
+*.swo
 
 # Environment files
 .env
@@ -11,12 +14,25 @@ server/.env
 server/.env.*
 server/secrets/
 secrets/
+*.local
+
+# Node.js
+node_modules/
+dist/
+.npm
+.eslintcache
+.stylelintcache
+.parcel-cache
+.next/
+out/
+build/
 
 # Python virtual environments
 .venv/
 venv/
 env/
 server/.venv/
+server/venv/
 
 # Python cache / build artifacts
 __pycache__/
@@ -29,10 +45,12 @@ __pycache__/
 build/
 dist/
 
-# Django files
+# Django / Database
 *.log
 media/
 staticfiles/
+db.sqlite3
+*.sqlite3
 
 # Testing / tooling caches
 .pytest_cache/
@@ -40,3 +58,14 @@ staticfiles/
 .ruff_cache/
 .coverage
 htmlcov/
+
+# AI / Editor Tools
+.agent/
+.gemini/
+.obsidian/
+
+# Wiki
+wiki/
+wiki_kb/
+
+
