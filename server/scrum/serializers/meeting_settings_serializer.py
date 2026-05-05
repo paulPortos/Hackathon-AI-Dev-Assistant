@@ -2,7 +2,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from rest_framework import serializers
 
-from projects.models import ProjectMeetingSettings
+from scrum.models import ProjectMeetingSettings
 
 
 class ProjectMeetingSettingsSerializer(serializers.ModelSerializer):

@@ -3,7 +3,6 @@ from projects.views.project_detail_view import ProjectDetailView
 from projects.views.project_github_repository_list_view import ProjectGitHubRepositoryListView
 from projects.views.project_import_from_github_view import ProjectImportFromGitHubView
 from projects.views.project_list_view import ProjectListView
-from projects.views.project_meeting_settings_view import ProjectMeetingSettingsView
 from projects.views.project_member_detail_view import ProjectMemberDetailView
 from projects.views.project_member_list_view import ProjectMemberListView
 from projects.views.project_repository_branch_list_view import ProjectRepositoryBranchListView
@@ -18,7 +17,6 @@ __all__ = [
     'ProjectGitHubRepositoryListView',
     'ProjectImportFromGitHubView',
     'ProjectListView',
-    'ProjectMeetingSettingsView',
     'ProjectMemberDetailView',
     'ProjectMemberListView',
     'ProjectRepositoryBranchListView',

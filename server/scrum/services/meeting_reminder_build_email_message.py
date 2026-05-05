@@ -1,6 +1,6 @@
 from html import escape
 
-from projects.services.project_scrum_summary_build import project_scrum_summary_build
+from scrum.services import project_scrum_summary_build
 
 
 def project_meeting_reminder_build_email_message(meeting_settings, current_datetime=None):

@@ -9,10 +9,9 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from projects.models import Project, ProjectAuditLog, ProjectMeetingSettings, ProjectMember, ProjectTask
-from projects.selectors import project_get_agent_context, project_meeting_settings_due_for_reminder
+from projects.models import Project, ProjectAuditLog, ProjectMember, ProjectTask
+from projects.selectors import project_get_agent_context
 from projects.services import (
-    project_meeting_reminder_send,
     project_task_create,
     project_vulnerability_create,
     project_vulnerability_mark_resolved,
@@ -23,7 +22,6 @@ from users.models import User
 
 project_import_service_module = importlib.import_module('projects.services.project_import_from_github')
 project_github_repository_list_service_module = importlib.import_module('projects.services.project_github_repository_list')
-project_meeting_reminder_send_service_module = importlib.import_module('projects.services.project_meeting_reminder_send')
 project_repository_branch_list_service_module = importlib.import_module('projects.services.project_repository_branch_list')
 
 
@@ -616,129 +614,6 @@ class ProjectTests(TestCase):
         self.assertEqual(creator_update_response.json()['priority'], 'critical')
         self.assertEqual(creator_update_response.json()['assigned_to_id'], owner_membership.id)
         self.assertEqual(outsider_response.status_code, status.HTTP_404_NOT_FOUND)
-
-    def test_meeting_settings_are_one_per_project_and_creator_managed(self):
-        project = self.create_project()
-        ProjectMember.objects.create(project=project, user=self.member, invited_by=self.creator, display_role='Backend Developer', roles=['backend'])
-
-        create_response = self.client.put(
-            reverse('api:projects:project-meeting-settings-detail', kwargs={'version': 'v1', 'project_id': project.id}),
-            {
-                'meeting_days': ['Monday', 'wednesday', 'monday'],
-                'meeting_time': '09:30:00',
-                'timezone': 'Asia/Manila',
-                'google_meet_link': 'https://meet.google.com/abc-defg-hij',
-                'weekly_goals': 'Ship project tasks.',
-                'monthly_goals': 'Improve security posture.',
-                'alert_minutes_before': 30,
-                'is_active': True,
-            },
-            content_type='application/json',
-            **self.auth_header(self.creator),
-        )
-        member_read_response = self.client.get(
-            reverse('api:projects:project-meeting-settings-detail', kwargs={'version': 'v1', 'project_id': project.id}),
-            **self.auth_header(self.member),
-        )
-        forbidden_response = self.client.patch(
-            reverse('api:projects:project-meeting-settings-detail', kwargs={'version': 'v1', 'project_id': project.id}),
-            {'weekly_goals': 'Not allowed'},
-            content_type='application/json',
-            **self.auth_header(self.member),
-        )
-        creator_update_response = self.client.patch(
-            reverse('api:projects:project-meeting-settings-detail', kwargs={'version': 'v1', 'project_id': project.id}),
-            {'weekly_goals': 'Close all critical tasks.'},
-            content_type='application/json',
-            **self.auth_header(self.creator),
-        )
-
-        self.assertEqual(create_response.status_code, status.HTTP_200_OK)
-        self.assertEqual(create_response.json()['meeting_days'], ['monday', 'wednesday'])
-        self.assertEqual(member_read_response.status_code, status.HTTP_200_OK)
-        self.assertEqual(forbidden_response.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertEqual(creator_update_response.status_code, status.HTTP_200_OK)
-        self.assertEqual(creator_update_response.json()['weekly_goals'], 'Close all critical tasks.')
-
-        with self.assertRaises(IntegrityError):
-            with transaction.atomic():
-                ProjectMeetingSettings.objects.create(
-                    project=project,
-                    meeting_days=['friday'],
-                    meeting_time=time(10, 0),
-                    timezone='Asia/Manila',
-                    google_meet_link='https://meet.google.com/xyz-abcd-efg',
-                )
-
-    def test_due_reminder_selector_respects_schedule_and_last_sent_at(self):
-        project = self.create_project()
-        meeting_settings = ProjectMeetingSettings.objects.create(
-            project=project,
-            meeting_days=['monday'],
-            meeting_time=time(10, 0),
-            timezone='Asia/Manila',
-            google_meet_link='https://meet.google.com/abc-defg-hij',
-            alert_minutes_before=30,
-        )
-        current_datetime = datetime(2026, 5, 4, 1, 30, tzinfo=ZoneInfo('UTC'))
-
-        due_settings = project_meeting_settings_due_for_reminder(current_datetime=current_datetime)
-        meeting_settings.last_reminder_sent_at = current_datetime
-        meeting_settings.save(update_fields=['last_reminder_sent_at', 'updated_at'])
-        already_sent_settings = project_meeting_settings_due_for_reminder(current_datetime=current_datetime)
-
-        self.assertEqual(due_settings, [meeting_settings])
-        self.assertEqual(already_sent_settings, [])
-
-    def test_scrum_reminder_email_composition_and_sendgrid_provider_are_mocked(self):
-        project = self.create_project()
-        project_member = ProjectMember.objects.create(
-            project=project,
-            user=self.member,
-            invited_by=self.creator,
-            display_role='Backend Developer',
-            roles=['backend'],
-        )
-        meeting_settings = ProjectMeetingSettings.objects.create(
-            project=project,
-            meeting_days=['monday'],
-            meeting_time=time(10, 0),
-            timezone='Asia/Manila',
-            google_meet_link='https://meet.google.com/abc-defg-hij',
-            weekly_goals='Ship the auth hardening sprint.',
-            monthly_goals='Reduce security risk.',
-            alert_minutes_before=30,
-        )
-        project_task_create(
-            project=project,
-            data={
-                'assigned_to': project_member,
-                'title': 'Fix CORS configuration',
-                'status': ProjectTask.Status.BLOCKED,
-                'priority': ProjectTask.Priority.HIGH,
-            },
-        )
-        project_task_create(
-            project=project,
-            data={'title': 'Document threat model', 'status': ProjectTask.Status.COMPLETED},
-        )
-        project_vulnerability_create(project=project, data={'title': 'Leaked token risk', 'severity': 'critical'})
-
-        with patch.object(project_meeting_reminder_send_service_module, 'send_scrum_meeting_email') as send_email:
-            project_meeting_reminder_send(
-                meeting_settings=meeting_settings,
-                current_datetime=datetime(2026, 5, 4, 1, 30, tzinfo=ZoneInfo('UTC')),
-            )
-
-        _, kwargs = send_email.call_args
-        self.assertEqual(kwargs['to_emails'], ['creator@example.com', 'backend@example.com'])
-        self.assertIn('https://meet.google.com/abc-defg-hij', kwargs['text_content'])
-        self.assertIn('Ship the auth hardening sprint.', kwargs['text_content'])
-        self.assertIn('Fix CORS configuration', kwargs['text_content'])
-        self.assertIn('Leaked token risk', kwargs['text_content'])
-        self.assertIn('Document threat model', kwargs['text_content'])
-        meeting_settings.refresh_from_db()
-        self.assertIsNotNone(meeting_settings.last_reminder_sent_at)
 
     def test_task_mutations_are_auto_audited(self):
         project = self.create_project()

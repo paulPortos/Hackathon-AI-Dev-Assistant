@@ -3,7 +3,7 @@ from zoneinfo import ZoneInfo
 
 from django.utils import timezone
 
-from projects.models import ProjectMeetingSettings
+from scrum.models import ProjectMeetingSettings
 
 
 def project_meeting_settings_due_for_reminder(*, current_datetime=None):

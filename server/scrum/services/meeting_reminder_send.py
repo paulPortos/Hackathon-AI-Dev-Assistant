@@ -1,7 +1,7 @@
 from django.utils import timezone
 
 from projects.providers import send_scrum_meeting_email
-from projects.services.project_meeting_reminder_build_email_message import project_meeting_reminder_build_email_message
+from scrum.services.meeting_reminder_build_email_message import project_meeting_reminder_build_email_message
 
 
 def project_meeting_reminder_send(*, meeting_settings, current_datetime=None):

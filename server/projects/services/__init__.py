@@ -1,14 +1,10 @@
 from projects.services.project_audit_log_create import project_audit_log_create
 from projects.services.project_github_repository_list import project_github_repository_list
 from projects.services.project_import_from_github import project_import_from_github
-from projects.services.project_meeting_reminder_build_email_message import project_meeting_reminder_build_email_message
-from projects.services.project_meeting_reminder_send import project_meeting_reminder_send
-from projects.services.project_meeting_settings_upsert import project_meeting_settings_upsert
 from projects.services.project_member_delete import project_member_delete
 from projects.services.project_member_invite import project_member_invite
 from projects.services.project_member_update import project_member_update
 from projects.services.project_repository_branch_list import project_repository_branch_list
-from projects.services.project_scrum_summary_build import project_scrum_summary_build
 from projects.services.project_task_agent_source_key_build import project_task_agent_source_key_build
 from projects.services.project_task_confidence_normalize import project_task_confidence_normalize
 from projects.services.project_task_create import project_task_create
@@ -26,14 +22,10 @@ __all__ = [
     'project_audit_log_create',
     'project_github_repository_list',
     'project_import_from_github',
-    'project_meeting_reminder_build_email_message',
-    'project_meeting_reminder_send',
-    'project_meeting_settings_upsert',
     'project_member_delete',
     'project_member_invite',
     'project_member_update',
     'project_repository_branch_list',
-    'project_scrum_summary_build',
     'project_task_agent_source_key_build',
     'project_task_confidence_normalize',
     'project_task_create',

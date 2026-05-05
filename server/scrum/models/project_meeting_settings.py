@@ -17,6 +17,7 @@ class ProjectMeetingSettings(models.Model):
 
     class Meta:
         ordering = ['id']
+        db_table = 'projects_projectmeetingsettings'  # Keep original table name to avoid data loss if any
 
     def __str__(self):
         return f'{self.project.github_full_name} meeting settings'

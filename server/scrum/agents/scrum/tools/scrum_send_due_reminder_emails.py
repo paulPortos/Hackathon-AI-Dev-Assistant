@@ -1,8 +1,8 @@
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
-from projects.selectors import project_meeting_settings_due_for_reminder
-from projects.services import project_meeting_reminder_send
+from scrum.selectors import project_meeting_settings_due_for_reminder
+from scrum.services import project_meeting_reminder_send
 
 
 def scrum_send_due_reminder_emails(current_datetime=None):

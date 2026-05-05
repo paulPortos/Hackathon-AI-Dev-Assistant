@@ -6,7 +6,6 @@ from projects.views import (
     ProjectGitHubRepositoryListView,
     ProjectImportFromGitHubView,
     ProjectListView,
-    ProjectMeetingSettingsView,
     ProjectMemberDetailView,
     ProjectMemberListView,
     ProjectRepositoryBranchListView,
@@ -44,11 +43,6 @@ urlpatterns = [
         '<int:project_id>/audit-logs/',
         ProjectAuditLogListView.as_view(),
         name='project-audit-log-list'
-    ),
-    path(
-        '<int:project_id>/meeting-settings/',
-        ProjectMeetingSettingsView.as_view(),
-        name='project-meeting-settings-detail'
     ),
     path(
         '<int:project_id>/members/',

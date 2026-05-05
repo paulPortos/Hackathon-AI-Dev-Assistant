@@ -1,4 +1,4 @@
-from projects.models import ProjectMeetingSettings
+from scrum.models import ProjectMeetingSettings
 
 
 def project_meeting_settings_upsert(*, project, data):

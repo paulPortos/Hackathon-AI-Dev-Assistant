@@ -3,9 +3,10 @@ from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from projects.selectors import project_get_for_member, project_meeting_settings_get_for_project
-from projects.serializers import ProjectMeetingSettingsSerializer
-from projects.services import project_meeting_settings_upsert
+from scrum.selectors import project_meeting_settings_get_for_project
+from scrum.serializers import ProjectMeetingSettingsSerializer
+from scrum.services import project_meeting_settings_upsert
+from projects.selectors import project_get_for_member
 
 
 class ProjectMeetingSettingsView(APIView):
