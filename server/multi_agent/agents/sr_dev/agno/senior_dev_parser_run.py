@@ -11,14 +11,56 @@ from multi_agent.agents.sr_dev.schemas import SeniorDevParserOutput
 def senior_dev_parser_run(*, session, user_message, assistant_text, tool_call_summary):
     """Executes a structured parser agent to extract data from a conversation turn."""
     def normalize_output(value):
+        def classify_item(item):
+            item_type = str(item.get('type') or item.get('kind') or '').strip().lower()
+            if item_type.startswith('finding'):
+                return 'finding'
+            if item_type.startswith('claim'):
+                return 'claim'
+
+            if any(key in item for key in ('severity', 'confidence_score', 'confidence_reason', 'finding_type')):
+                return 'finding'
+            if 'title' in item and 'text' not in item and 'claim' not in item:
+                return 'finding'
+            return 'claim'
+
+        def wrap_list(items):
+            claims = []
+            findings = []
+            for item in items:
+                if isinstance(item, dict):
+                    bucket = classify_item(item)
+                    if bucket == 'finding':
+                        findings.append(item)
+                    else:
+                        claims.append(item)
+                else:
+                    claims.append({'text': str(item or '').strip()})
+            return {
+                'assistant_message': '',
+                'check_in_question': '',
+                'choices': [],
+                'allow_free_text': True,
+                'conversation_summary': '',
+                'claims': claims,
+                'findings': findings,
+            }
+
         if isinstance(value, SeniorDevParserOutput):
             return value.model_dump()
         if hasattr(value, 'model_dump'):
             return value.model_dump()
-        if isinstance(value, dict):
-            return SeniorDevParserOutput(**value).model_dump()
-        if isinstance(value, str):
-            return SeniorDevParserOutput(**json.loads(value)).model_dump()
+
+        parsed = value
+        if isinstance(parsed, str):
+            parsed = json.loads(parsed)
+
+        if isinstance(parsed, list):
+            parsed = wrap_list(parsed)
+
+        if isinstance(parsed, dict):
+            return SeniorDevParserOutput(**parsed).model_dump()
+
         raise ValueError('Senior Dev parser returned an unsupported response')
 
     agent = Agent(
