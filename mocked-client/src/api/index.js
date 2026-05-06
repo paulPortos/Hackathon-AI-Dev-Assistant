@@ -130,4 +130,6 @@ export const api = {
     apiRequest(`${apiPaths.projectGitHubIssues(projectId)}?state=${state}`),
   syncGitHubIssues: (projectId) => 
     apiRequest(apiPaths.projectGitHubIssuesSync(projectId), { method: 'POST' }),
+  deleteScrumSession: (sessionId) =>
+    apiRequest(apiPaths.scrumSessionDetail(sessionId), { method: 'DELETE' }),
 };

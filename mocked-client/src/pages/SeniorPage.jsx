@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 import { api } from '../api';
 import { authStorage, normalizeList } from '../api/client';
@@ -17,6 +19,54 @@ const findingStatusOptions = [
 ];
 
 const shortSha = (sha) => String(sha || '').slice(0, 7);
+const TOOL_LABELS = {
+  get_context: '📋 Loading project context',
+  set_repository_ref: '🔗 Resolving repository ref',
+  list_repository_tree: '🗂️ Scanning file tree',
+  search_code: '🔍 Searching code',
+  read_file: '📄 Reading file',
+  compare_repository_refs: '⚖️ Comparing refs',
+  get_commit_status: '✅ Checking commit status',
+  find_dependency_manifests: '📦 Finding dependencies',
+  prepare_pm_handoff: '📬 Preparing handoff',
+};
+
+function formatArgs(args) {
+  if (!args || typeof args !== 'object') return '';
+  const entries = Object.entries(args).slice(0, 2);
+  return entries.map(([k, v]) => `${k}: ${String(v).slice(0, 30)}`).join(', ');
+}
+
+function ThinkingBubble({ toolEvents = [] }) {
+  return (
+    <div className="message-bubble assistant thinking-bubble">
+      <div className="avatar">AI</div>
+      <div className="thinking-body">
+        {toolEvents.length > 0 ? (
+          <div className="tool-log">
+            {toolEvents.map((t, i) => (
+              <div key={i} className={`tool-log-row status-${t.status}`}>
+                <span className="tool-status-icon">
+                  {t.status === 'running' ? '⟳' : t.status === 'done' ? '✓' : '✗'}
+                </span>
+                <span className="tool-name">{TOOL_LABELS[t.name] || t.name}</span>
+                {t.args && <span className="tool-args">{formatArgs(t.args)}</span>}
+                {t.duration_ms !== null && (
+                  <span className="tool-duration">{t.duration_ms}ms</span>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : null}
+        <div className="thinking-dots">
+          <span />
+          <span />
+          <span />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function SeniorPage() {
   const [searchParams] = useSearchParams();
@@ -33,7 +83,10 @@ export default function SeniorPage() {
   const [findingStatusPendingId, setFindingStatusPendingId] = useState('');
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
+  const [toolEvents, setToolEvents] = useState([]);
+  const [reconnectKey, setReconnectKey] = useState(0);
   const socketRef = useRef(null);
+  const messagesEndRef = useRef(null);
   const autoCreatedRef = useRef(new Set());
   const pendingQueueRef = useRef([]);
 
@@ -128,6 +181,14 @@ export default function SeniorPage() {
     setMessages((prev) => [...prev, pendingMessage]);
   };
 
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, toolEvents]);
+
   const appendServerMessage = (message) => {
     if (!message) return;
     setMessages((prev) => {
@@ -174,6 +235,11 @@ export default function SeniorPage() {
       socketRef.current.close();
       socketRef.current = null;
     }
+  };
+
+  const handleReconnect = () => {
+    setError('');
+    setReconnectKey((prev) => prev + 1);
   };
 
   const sendWsPayload = (payload) => {
@@ -357,6 +423,30 @@ export default function SeniorPage() {
       if (payload.event === 'error') {
         setError(payload.message || 'WebSocket error');
       }
+
+      if (payload.event === 'tool_event') {
+        setToolEvents((prev) => {
+          if (payload.phase === 'start') {
+            return [
+              ...prev,
+              {
+                name: payload.name,
+                args: payload.args,
+                status: 'running',
+                duration_ms: null,
+              },
+            ];
+          }
+          if (payload.phase === 'done') {
+            return prev.map((t) =>
+              t.name === payload.name && t.status === 'running'
+                ? { ...t, status: payload.ok ? 'done' : 'error', duration_ms: payload.duration_ms }
+                : t
+            );
+          }
+          return prev;
+        });
+      }
     };
 
     socket.onerror = () => {
@@ -380,10 +470,11 @@ export default function SeniorPage() {
         socketRef.current = null;
       }
     };
-  }, [selectedSessionId]);
+  }, [selectedSessionId, reconnectKey]);
 
   const sendChoice = async (choiceText) => {
     if (!selectedSessionId) return;
+    setToolEvents([]);
     const sent = sendWsPayload({
       action: 'send_message',
       input_type: 'choice',
@@ -397,6 +488,7 @@ export default function SeniorPage() {
 
   const sendText = async () => {
     if (!selectedSessionId || !inputText.trim()) return;
+    setToolEvents([]);
     const textToSend = inputText.trim();
     const sent = sendWsPayload({
       action: 'send_message',
@@ -421,6 +513,10 @@ export default function SeniorPage() {
     return defaultChoices;
   }, [lastAssistant]);
 
+  const isThinking = useMemo(() => {
+    return messages.length > 0 && messages[messages.length - 1]?.role === 'user';
+  }, [messages]);
+
   return (
     <div className="senior-layout" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '32px', height: 'calc(100vh - 180px)' }}>
       {/* LEFT COLUMN: CHAT AREA */}
@@ -430,7 +526,28 @@ export default function SeniorPage() {
             <h3 style={{ margin: 0 }}>Senior AI Assistant</h3>
             <p className="subtle" style={{ margin: 0, fontSize: '12px' }}>Choice-driven development partner</p>
           </div>
-          {error && <span className="tag" style={{ background: '#ffebee', color: '#c62828' }}>{error}</span>}
+          {error && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span className="tag" style={{ background: '#ffebee', color: '#c62828' }}>{error}</span>
+              {(error.includes('disconnected') || error.includes('error')) && (
+                <button
+                  className="button secondary"
+                  onClick={handleReconnect}
+                  style={{
+                    padding: '4px 12px',
+                    height: '28px',
+                    fontSize: '11px',
+                    borderRadius: 'var(--radius-sm)',
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}
+                >
+                  Reconnect
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="chat-messages" style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -444,11 +561,19 @@ export default function SeniorPage() {
               <div key={message.id} className={`message-bubble ${message.role === 'assistant' ? 'assistant' : 'user'}`}>
                 <div className="avatar">{message.role === 'assistant' ? 'AI' : 'U'}</div>
                 <div className="content">
-                  <div className="text">{message.text_content}</div>
+                  <div className="text">
+                    {message.role === 'assistant' ? (
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.text_content}</ReactMarkdown>
+                    ) : (
+                      message.text_content
+                    )}
+                  </div>
                 </div>
               </div>
             ))
           )}
+          {isThinking && <ThinkingBubble toolEvents={toolEvents} />}
+          <div ref={messagesEndRef} />
         </div>
 
         <div className="chat-input-area" style={{ padding: '24px', background: 'rgba(0,0,0,0.02)', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
@@ -545,13 +670,13 @@ export default function SeniorPage() {
               disabled={!selectedSessionId}
             />
           </div>
-          
+
           <div className="field">
             <label className="label" style={{ fontSize: '12px' }}>Project Branch</label>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <select 
-                className="select" 
-                value={selectedBranch} 
+              <select
+                className="select"
+                value={selectedBranch}
                 onChange={(e) => handleBranchSelect(e.target.value)}
                 style={{ flex: 1 }}
               >
@@ -560,8 +685,8 @@ export default function SeniorPage() {
                 ))}
                 {branches.length === 0 && <option value="main">main</option>}
               </select>
-              <button 
-                className="button secondary" 
+              <button
+                className="button secondary"
                 style={{ padding: '8px' }}
                 onClick={() => handleBranchSelect(selectedBranch)}
                 title="Use selected branch commit"
@@ -578,9 +703,9 @@ export default function SeniorPage() {
 
           <div className="field" style={{ marginTop: '16px' }}>
             <label className="label" style={{ fontSize: '12px' }}>Switch Session</label>
-            <select 
-              className="select" 
-              value={selectedSessionId} 
+            <select
+              className="select"
+              value={selectedSessionId}
               onChange={(e) => setSelectedSessionId(e.target.value)}
             >
               <option value="">Select a session...</option>
@@ -598,13 +723,13 @@ export default function SeniorPage() {
           <h4 style={{ margin: '0 0 16px' }}>Today</h4>
           <div className="list">
             {sessions.slice(0, 5).map(session => (
-              <div 
-                key={session.id} 
+              <div
+                key={session.id}
                 className={`session-item ${selectedSessionId === String(session.id) ? 'active' : ''}`}
                 onClick={() => setSelectedSessionId(String(session.id))}
-                style={{ 
-                  padding: '12px', 
-                  borderRadius: 'var(--radius-sm)', 
+                style={{
+                  padding: '12px',
+                  borderRadius: 'var(--radius-sm)',
                   cursor: 'pointer',
                   background: selectedSessionId === String(session.id) ? 'var(--accent-100)' : 'transparent',
                   marginBottom: '8px',

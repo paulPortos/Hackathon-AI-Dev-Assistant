@@ -1,7 +1,7 @@
 GITHUB_ISSUES_FUNCTION_DECLARATIONS = [
     {
         "name": "github_list_issues",
-        "description": "List GitHub issues for the current project from the local cache. Use this to see what issues are currently open or closed.",
+        "description": "List GitHub issues for the current project directly from the GitHub API. Use this to see the most up-to-date issues.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -11,21 +11,13 @@ GITHUB_ISSUES_FUNCTION_DECLARATIONS = [
     },
     {
         "name": "github_get_issue",
-        "description": "Get details of a specific GitHub issue by its number.",
+        "description": "Get live details of a specific GitHub issue by its number directly from GitHub.",
         "parameters": {
             "type": "object",
             "properties": {
                 "issue_number": {"type": "integer", "description": "The GitHub issue number"}
             },
             "required": ["issue_number"]
-        }
-    },
-    {
-        "name": "github_sync_issues",
-        "description": "Trigger a synchronization of GitHub issues from the live GitHub API into the local cache. Use this if the user says there are issues you can't see, or if the data feels stale.",
-        "parameters": {
-            "type": "object",
-            "properties": {}
         }
     }
 ]

@@ -8,6 +8,8 @@ from scrum.agents.scrum.tools import (
     kanban_move_card,
     kanban_update_card,
     kanban_delete_card,
+    kanban_bulk_move_cards,
+    kanban_bulk_update_cards,
     KANBAN_FUNCTION_DECLARATIONS,
 )
 
@@ -21,5 +23,7 @@ __all__ = [
     'kanban_move_card',
     'kanban_update_card',
     'kanban_delete_card',
+    'kanban_bulk_move_cards',
+    'kanban_bulk_update_cards',
     'KANBAN_FUNCTION_DECLARATIONS',
 ]

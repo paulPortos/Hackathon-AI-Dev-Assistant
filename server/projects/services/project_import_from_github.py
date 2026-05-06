@@ -3,6 +3,7 @@ from django.db import transaction
 from projects.models import Project, ProjectMember
 from projects.providers import fetch_github_repository, fetch_github_repository_languages
 from projects.services.project_update_github_metadata import project_update_github_metadata
+from scrum.models import Board, Column
 from users.services import github_access_token_get_valid
 
 
@@ -39,6 +40,15 @@ def project_import_from_github(*, creator, repository):
     )
     if not created:
         project_update_github_metadata(project=project, data=metadata)
+    else:
+        board = Board.objects.create(
+            creator=creator,
+            project=project,
+            name=f"{project.github_full_name} Board",
+            description=f"Auto-generated Kanban board for {project.github_full_name}"
+        )
+        for i, col_name in enumerate(["To Do", "In Progress", "Done"]):
+            Column.objects.create(board=board, name=col_name, position=i)
 
     ProjectMember.objects.get_or_create(
         project=project,

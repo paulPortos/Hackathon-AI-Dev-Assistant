@@ -59,7 +59,7 @@ export const apiPaths = {
   srDevFinding: (sessionId, findingId) => `/agents/sr-dev/sessions/${sessionId}/findings/${findingId}/`,
   authRefresh: '/auth/tokens/refresh/',
   authVerify: '/auth/tokens/verify/',
-  
+
   // Kanban
   boards: ENDPOINTS.KANBAN.BOARDS,
   boardDetail: ENDPOINTS.KANBAN.BOARD_DETAIL,

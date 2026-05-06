@@ -1,6 +1,8 @@
 from channels.db import database_sync_to_async
 from scrum.models import Board, Column, Card, Label
 from django.db.models import Prefetch
+from django.db import transaction
+
 
 @database_sync_to_async
 def kanban_list_boards():
@@ -51,7 +53,7 @@ def kanban_get_board_detail(board_id: int):
         return {'ok': False, 'error': str(e)}
 
 @database_sync_to_async
-def kanban_add_card(column_id: int, title: str, priority: str = "medium", description: str = ""):
+def kanban_add_card(column_id: int, title: str, priority: str = "medium", description: str = "", due_date: str = None):
     """Creates a new card in the specified column."""
     try:
         column = Column.objects.get(id=column_id)
@@ -64,7 +66,8 @@ def kanban_add_card(column_id: int, title: str, priority: str = "medium", descri
             title=title,
             priority=priority,
             description=description,
-            position=position
+            position=position,
+            start_datetime=due_date
         )
         return {
             'ok': True, 
@@ -104,7 +107,7 @@ def kanban_move_card(card_id: int, target_column_id: int):
         return {'ok': False, 'error': str(e)}
 
 @database_sync_to_async
-def kanban_update_card(card_id: int, title: str = None, description: str = None, priority: str = None):
+def kanban_update_card(card_id: int, title: str = None, description: str = None, priority: str = None, due_date: str = None):
     """Updates card fields."""
     try:
         card = Card.objects.get(id=card_id)
@@ -114,6 +117,8 @@ def kanban_update_card(card_id: int, title: str = None, description: str = None,
             card.description = description
         if priority is not None:
             card.priority = priority
+        if due_date is not None:
+            card.start_datetime = due_date
         card.save()
         return {'ok': True, 'card_id': card.id}
     except Card.DoesNotExist:
@@ -130,5 +135,54 @@ def kanban_delete_card(card_id: int):
         return {'ok': True, 'card_id': card_id}
     except Card.DoesNotExist:
         return {'ok': False, 'error': f'Card with ID {card_id} not found.'}
+    except Exception as e:
+        return {'ok': False, 'error': str(e)}
+@database_sync_to_async
+def kanban_bulk_move_cards(card_ids: list[int], target_column_id: int):
+    """Moves multiple cards to a different column."""
+    try:
+        column = Column.objects.get(id=target_column_id)
+        
+        with transaction.atomic():
+            results = []
+            for card_id in card_ids:
+                try:
+                    card = Card.objects.get(id=card_id)
+                    # Get next position in target column
+                    last_card = Card.objects.filter(column=column).order_by('-position').first()
+                    position = (last_card.position + 1) if last_card else 1
+                    
+                    card.column = column
+                    card.position = position
+                    card.save()
+                    results.append({'id': card_id, 'ok': True})
+                except Card.DoesNotExist:
+                    results.append({'id': card_id, 'ok': False, 'error': 'Not found'})
+            
+        return {'ok': True, 'results': results, 'new_column_id': column.id}
+    except Column.DoesNotExist:
+        return {'ok': False, 'error': f'Column with ID {target_column_id} not found.'}
+    except Exception as e:
+        return {'ok': False, 'error': str(e)}
+
+@database_sync_to_async
+def kanban_bulk_update_cards(card_ids: list[int], priority: str = None, due_date: str = None):
+    """Updates multiple cards at once (e.g., bulk set due date or priority)."""
+    try:
+        with transaction.atomic():
+            results = []
+            for card_id in card_ids:
+                try:
+                    card = Card.objects.get(id=card_id)
+                    if priority is not None:
+                        card.priority = priority
+                    if due_date is not None:
+                        card.start_datetime = due_date
+                    card.save()
+                    results.append({'id': card_id, 'ok': True})
+                except Card.DoesNotExist:
+                    results.append({'id': card_id, 'ok': False, 'error': 'Not found'})
+            
+        return {'ok': True, 'results': results}
     except Exception as e:
         return {'ok': False, 'error': str(e)}

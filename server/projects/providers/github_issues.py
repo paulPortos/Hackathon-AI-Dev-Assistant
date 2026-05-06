@@ -59,3 +59,10 @@ def update_github_issue(access_token, repo_full_name, issue_number, **fields):
     
     response = requests.patch(url, json=fields, headers=headers, timeout=15)
     return _parse_response(response, f"Failed to update issue #{issue_number} in {repo_full_name}")
+
+def get_github_issue(access_token, repo_full_name, issue_number):
+    url = f"https://api.github.com/repos/{repo_full_name}/issues/{issue_number}"
+    headers = _get_headers(access_token)
+    
+    response = requests.get(url, headers=headers, timeout=15)
+    return _parse_response(response, f"GitHub issue fetch failed for {repo_full_name} #{issue_number}")

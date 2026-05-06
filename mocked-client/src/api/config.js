@@ -12,7 +12,7 @@ const resolveWsBaseUrl = (baseUrl) => {
   return baseUrl;
 };
 
-export const WS_BASE_URL = resolveWsBaseUrl('http://localhost:8080');
+export const WS_BASE_URL = resolveWsBaseUrl(API_BASE_URL);
 export const WS_ROOT = `${WS_BASE_URL}/ws`;
 
 export const ENDPOINTS = {

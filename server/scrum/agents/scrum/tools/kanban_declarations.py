@@ -24,7 +24,8 @@ KANBAN_FUNCTION_DECLARATIONS = [
                 "column_id": {"type": "integer", "description": "Target column ID"},
                 "title": {"type": "string", "description": "Card title"},
                 "priority": {"type": "string", "enum": ["low", "medium", "high", "urgent"]},
-                "description": {"type": "string", "description": "Card description"}
+                "description": {"type": "string", "description": "Card description"},
+                "due_date": {"type": "string", "description": "Due date in ISO 8601 format (e.g., '2026-05-06T12:00:00Z')"}
             },
             "required": ["column_id", "title"]
         }
@@ -43,14 +44,15 @@ KANBAN_FUNCTION_DECLARATIONS = [
     },
     {
         "name": "kanban_update_card",
-        "description": "Update a card's title, description, or priority.",
+        "description": "Update a card's title, description, priority, or due_date.",
         "parameters": {
             "type": "object",
             "properties": {
                 "card_id": {"type": "integer", "description": "Card ID to update"},
                 "title": {"type": "string"},
                 "description": {"type": "string"},
-                "priority": {"type": "string", "enum": ["low", "medium", "high", "urgent"]}
+                "priority": {"type": "string", "enum": ["low", "medium", "high", "urgent"]},
+                "due_date": {"type": "string", "description": "Due date in ISO 8601 format (e.g., '2026-05-06T12:00:00Z')"}
             },
             "required": ["card_id"]
         }
@@ -64,6 +66,39 @@ KANBAN_FUNCTION_DECLARATIONS = [
                 "card_id": {"type": "integer", "description": "Card ID to delete"}
             },
             "required": ["card_id"]
+        }
+    },
+    {
+        "name": "kanban_bulk_move_cards",
+        "description": "Move multiple cards to a different column simultaneously.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "card_ids": {
+                    "type": "array",
+                    "items": {"type": "integer"},
+                    "description": "List of Card IDs to move"
+                },
+                "target_column_id": {"type": "integer", "description": "Target column ID"}
+            },
+            "required": ["card_ids", "target_column_id"]
+        }
+    },
+    {
+        "name": "kanban_bulk_update_cards",
+        "description": "Update multiple cards at once (e.g., bulk set due date or priority).",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "card_ids": {
+                    "type": "array",
+                    "items": {"type": "integer"},
+                    "description": "List of Card IDs to update"
+                },
+                "priority": {"type": "string", "enum": ["low", "medium", "high", "urgent"]},
+                "due_date": {"type": "string", "description": "Due date in ISO 8601 format (e.g., '2026-05-06T12:00:00Z')"}
+            },
+            "required": ["card_ids"]
         }
     }
 ]
