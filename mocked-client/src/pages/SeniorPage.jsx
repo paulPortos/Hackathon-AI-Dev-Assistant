@@ -16,6 +16,8 @@ const findingStatusOptions = [
   { value: 'handed_off', label: 'Handed off' },
 ];
 
+const shortSha = (sha) => String(sha || '').slice(0, 7);
+
 export default function SeniorPage() {
   const [searchParams] = useSearchParams();
   const initialProjectId = searchParams.get('projectId') || '';
@@ -81,8 +83,20 @@ export default function SeniorPage() {
     return { name: fallback?.name || branchName, commitSha: fallback?.commit_sha || '' };
   };
 
-  const resolveSessionLabel = (session) =>
-    session.name || session.project_name || `Session ${session.id}`;
+  const resolveSessionLabel = (session) => {
+    const base = session.name || session.project_name || `Session ${session.id}`;
+    const branch = session.branch_name || 'commit';
+    const sha = shortSha(session.commit_sha);
+    return sha ? `${base} • ${branch}@${sha}` : base;
+  };
+
+  const findSessionForBranch = (sessionList, projectId, branchData) =>
+    sessionList.find(
+      (session) =>
+        String(session.project_id) === String(projectId) &&
+        session.branch_name === branchData.name &&
+        session.commit_sha === branchData.commitSha
+    );
 
   const loadFindings = async (sessionId) => {
     try {
@@ -214,9 +228,30 @@ export default function SeniorPage() {
       setSessions((prev) => [payload, ...prev]);
       setSelectedSessionId(String(payload.id));
       setSelectedBranch(resolved.name);
+      return payload;
     } catch (err) {
       setError('Session creation failed: ' + err.message);
+      return null;
     }
+  };
+
+  const handleBranchSelect = async (branchName, branchList = branches, sessionList = sessions) => {
+    setSelectedBranch(branchName);
+    if (!initialProjectId) return;
+
+    const resolved = resolveBranchData(branchName, branchList);
+    if (!resolved.commitSha) {
+      setError('No commit SHA found for the selected branch. Reload branches and try again.');
+      return;
+    }
+
+    const matchingSession = findSessionForBranch(sessionList, initialProjectId, resolved);
+    if (matchingSession) {
+      setSelectedSessionId(String(matchingSession.id));
+      return;
+    }
+
+    await handleCreateSession(initialProjectId, resolved.name, branchList);
   };
 
   const handleSessionNameSave = async () => {
@@ -235,7 +270,10 @@ export default function SeniorPage() {
 
   useEffect(() => {
     setSessionNameDraft(selectedSession?.name || '');
-  }, [selectedSessionId, selectedSession?.name]);
+    if (selectedSession?.branch_name) {
+      setSelectedBranch(selectedSession.branch_name);
+    }
+  }, [selectedSessionId, selectedSession?.name, selectedSession?.branch_name]);
 
   useEffect(() => {
     const init = async () => {
@@ -243,16 +281,17 @@ export default function SeniorPage() {
       let branchList = [];
       if (initialProjectId) {
         branchList = await loadBranches(initialProjectId);
-        // If a projectId is provided, try to find an existing active session or create a new one
-        const existing = currentSessions.find(s => String(s.project_id) === initialProjectId);
+        const defaultBranchName =
+          branchList.find((branch) => branch.is_default)?.name || selectedBranch || 'main';
+        const resolved = resolveBranchData(defaultBranchName, branchList);
+        const existing = resolved.commitSha
+          ? findSessionForBranch(currentSessions, initialProjectId, resolved)
+          : currentSessions.find(s => String(s.project_id) === initialProjectId);
         if (existing) {
           setSelectedSessionId(String(existing.id));
-        } else if (!autoCreatedRef.current.has(initialProjectId)) {
-          autoCreatedRef.current.add(initialProjectId);
-          // We'll let the user click "Start" if they want a different branch, 
-          // or just default to main for now.
-          const defaultBranchName =
-            branchList.find((branch) => branch.is_default)?.name || selectedBranch || 'main';
+          setSelectedBranch(existing.branch_name || defaultBranchName);
+        } else if (resolved.commitSha && !autoCreatedRef.current.has(`${initialProjectId}:${resolved.name}:${resolved.commitSha}`)) {
+          autoCreatedRef.current.add(`${initialProjectId}:${resolved.name}:${resolved.commitSha}`);
           await handleCreateSession(initialProjectId, defaultBranchName, branchList);
         }
       } else if (currentSessions.length > 0) {
@@ -513,7 +552,7 @@ export default function SeniorPage() {
               <select 
                 className="select" 
                 value={selectedBranch} 
-                onChange={(e) => setSelectedBranch(e.target.value)}
+                onChange={(e) => handleBranchSelect(e.target.value)}
                 style={{ flex: 1 }}
               >
                 {branches.map(b => (
@@ -524,12 +563,17 @@ export default function SeniorPage() {
               <button 
                 className="button secondary" 
                 style={{ padding: '8px' }}
-                onClick={() => initialProjectId && handleCreateSession(initialProjectId, selectedBranch)}
-                title="Start New Session"
+                onClick={() => handleBranchSelect(selectedBranch)}
+                title="Use selected branch commit"
               >
                 +
               </button>
             </div>
+            {selectedSession && (
+              <p className="subtle" style={{ fontSize: '11px', margin: '8px 0 0' }}>
+                Reviewing {selectedSession.branch_name || 'commit'}@{shortSha(selectedSession.commit_sha)}
+              </p>
+            )}
           </div>
 
           <div className="field" style={{ marginTop: '16px' }}>
