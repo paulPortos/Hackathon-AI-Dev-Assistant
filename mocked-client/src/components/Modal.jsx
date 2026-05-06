@@ -6,17 +6,19 @@ export default function Modal({ isOpen, title, onClose, children }) {
   }
 
   return (
-    <dialog className="modal-backdrop" open>
+    <div className="modal-backdrop">
       <div className="modal">
         <div className="modal-header">
           <h3>{title}</h3>
-          <button className="button ghost" type="button" onClick={onClose}>
-            Close
+          <button className="button ghost" type="button" onClick={onClose} style={{ boxShadow: 'none' }}>
+            ✕
           </button>
         </div>
-        {children}
+        <div className="modal-body">
+          {children}
+        </div>
       </div>
-    </dialog>
+    </div>
   );
 }
 

@@ -59,6 +59,27 @@ export const apiPaths = {
   srDevFinding: (sessionId, findingId) => `/agents/sr-dev/sessions/${sessionId}/findings/${findingId}/`,
   authRefresh: '/auth/tokens/refresh/',
   authVerify: '/auth/tokens/verify/',
+  
+  // Kanban
+  boards: ENDPOINTS.KANBAN.BOARDS,
+  boardDetail: ENDPOINTS.KANBAN.BOARD_DETAIL,
+  boardColumns: ENDPOINTS.KANBAN.BOARD_COLUMNS,
+  columnDetail: ENDPOINTS.KANBAN.COLUMN_DETAIL,
+  columnReorder: ENDPOINTS.KANBAN.COLUMN_REORDER,
+  columnCards: ENDPOINTS.KANBAN.COLUMN_CARDS,
+  cardDetail: ENDPOINTS.KANBAN.CARD_DETAIL,
+  cardMove: ENDPOINTS.KANBAN.CARD_MOVE,
+  boardLabels: ENDPOINTS.KANBAN.BOARD_LABELS,
+  cardLabels: ENDPOINTS.KANBAN.CARD_LABELS,
+  cardComments: ENDPOINTS.KANBAN.CARD_COMMENTS,
+  commentDetail: ENDPOINTS.KANBAN.COMMENT_DETAIL,
+  calendar: ENDPOINTS.CALENDAR,
+  calendarEvents: ENDPOINTS.CALENDAR_EVENTS,
+  scrumSessions: '/scrum/sessions/',
+  scrumSessionDetail: (sessionId) => `/scrum/sessions/${sessionId}/`,
+  scrumSessionMessages: (sessionId) => `/scrum/sessions/${sessionId}/messages/`,
+  projectGitHubIssues: (projectId) => `/projects/${projectId}/github-issues/`,
+  projectGitHubIssuesSync: (projectId) => `/projects/${projectId}/github-issues/sync/`,
 };
 
 const buildApiUrl = (path) => {
