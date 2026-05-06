@@ -9,8 +9,7 @@ from scrum.agents.scrum.tools.kanban_tools import (
 from scrum.agents.scrum.tools.kanban_declarations import KANBAN_FUNCTION_DECLARATIONS
 from scrum.agents.scrum.tools.github_issues_declarations import GITHUB_ISSUES_FUNCTION_DECLARATIONS
 from scrum.agents.scrum.tools.github_issues_tools import (
-    github_list_issues, github_get_issue, 
-    github_sync_issues_tool
+    github_list_issues, github_get_issue
 )
 
 __all__ = [
@@ -25,7 +24,6 @@ __all__ = [
     'kanban_delete_card',
     'github_list_issues',
     'github_get_issue',
-    'github_sync_issues_tool',
     'KANBAN_FUNCTION_DECLARATIONS',
     'GITHUB_ISSUES_FUNCTION_DECLARATIONS',
 ]

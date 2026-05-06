@@ -16,7 +16,6 @@ from scrum.agents.scrum.tools import (
     GITHUB_ISSUES_FUNCTION_DECLARATIONS,
     github_list_issues,
     github_get_issue,
-    github_sync_issues_tool,
 )
 from asgiref.sync import sync_to_async
 from scrum.models.scrum_session import ScrumSession
@@ -119,12 +118,6 @@ class ScrumLiveConsumer(AsyncWebsocketConsumer):
             status=status
         )
 
-    @sync_to_async
-    def get_github_issues_snapshot(self):
-        """Fetch top 30 open issues from DB for context bake."""
-        issues = GitHubIssue.objects.filter(project_id=self.project_id, state='open').order_by('-github_number')[:30]
-        return list(issues)
-
     def format_issues_for_prompt(self, issues):
         """Format issues list into a concise string for system prompt."""
         if not issues:
@@ -144,7 +137,8 @@ class ScrumLiveConsumer(AsyncWebsocketConsumer):
             "You are a helpful Scrum Master assistant with access to the team's Kanban board. "
             "You can view boards, add cards, move cards between columns, update card details, and delete cards. "
             "When the user asks about tasks, first use kanban_list_boards and kanban_get_board_detail to understand the current state. "
-            "When the user asks to add, move, update, or delete tasks, use the appropriate tool. "
+            "When the user asks to add, move, or update tasks, use the appropriate tool. "
+            "CRITICAL SAFEGUARD FOR DELETION: When the user asks to delete a card, NEVER use the kanban_delete_card tool immediately. First, verbally ask the user for confirmation (e.g., 'Are you sure you want to delete this task?'). Only proceed to use the kanban_delete_card tool if the user explicitly confirms."
             "Always confirm what you did after completing an action."
         )
 
@@ -153,14 +147,9 @@ class ScrumLiveConsumer(AsyncWebsocketConsumer):
         else:
             system_instruction = base_instruction
 
-        # Context bake: GitHub Issues
-        issues_snapshot = await self.get_github_issues_snapshot()
-        github_context = self.format_issues_for_prompt(issues_snapshot)
-        
         project = await sync_to_async(Project.objects.get)(id=self.project_id)
         
         system_instruction += f"\n\n## Project GitHub Repository: {project.github_full_name}"
-        system_instruction += f"\n## Open GitHub Issues (snapshot):\n{github_context}"
         system_instruction += "\n\nYou can use the github_* tools to query live data for issues."
 
         config = {
@@ -264,17 +253,14 @@ class ScrumLiveConsumer(AsyncWebsocketConsumer):
             "kanban_delete_card": kanban_delete_card,
             "github_list_issues": github_list_issues,
             "github_get_issue": github_get_issue,
-            "github_sync_issues": github_sync_issues_tool,
         }
         handler = TOOL_MAP.get(name)
         if not handler:
             return {"error": f"Unknown tool: {name}"}
         try:
             # Special handling for tools that need 'user' or 'project_id' context
-            if name == "github_sync_issues":
+            if name in ("github_list_issues", "github_get_issue"):
                 result = await handler(project_id=self.project_id, user=self.user, **args)
-            elif name in ("github_list_issues", "github_get_issue"):
-                result = await handler(project_id=self.project_id, **args)
             else:
                 result = await handler(**args)
             
