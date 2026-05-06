@@ -177,6 +177,15 @@ export default function ProjectPage() {
     }
   };
 
+  const handleSyncIssues = async () => {
+    try {
+      const result = await api.syncGitHubIssues(projectId);
+      alert(`Successfully synced ${result.synced} issues for ${result.repo}`);
+    } catch (err) {
+      alert('Failed to sync issues: ' + err.message);
+    }
+  };
+
   return (
     <div className="grid">
       <section className="grid two" style={{ alignItems: 'stretch' }}>
@@ -196,6 +205,10 @@ export default function ProjectPage() {
               <Link className="button secondary" to={`/senior?projectId=${project.id}`} style={{ padding: '8px 24px' }}>
                 Report to senior
               </Link>
+              <button className="button" type="button" onClick={handleSyncIssues} style={{ padding: '8px 16px', background: '#333', color: '#fff' }}>
+                <GitHubIcon style={{ width: '14px', height: '14px', marginRight: '6px' }} />
+                Sync Issues
+              </button>
             </>
           ) : null}
         >

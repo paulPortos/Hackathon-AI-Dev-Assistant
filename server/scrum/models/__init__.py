@@ -9,6 +9,7 @@ from scrum.models.kanban_card import Card, CardLabel
 from scrum.models.kanban_label import Label
 from scrum.models.kanban_comment import Comment
 from scrum.models.calendar_event import Event
+from scrum.models.github_issue import GitHubIssue
 
 __all__ = [
     'ScrumSession',
@@ -23,4 +24,5 @@ __all__ = [
     'Label',
     'Comment',
     'Event',
+    'GitHubIssue',
 ]

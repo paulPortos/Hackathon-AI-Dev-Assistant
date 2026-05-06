@@ -17,6 +17,7 @@ from projects.services.project_update_context import project_update_context
 from projects.services.project_update_github_metadata import project_update_github_metadata
 from projects.services.project_vulnerability_create import project_vulnerability_create
 from projects.services.project_vulnerability_mark_resolved import project_vulnerability_mark_resolved
+from projects.services.github_issues_sync import github_issues_sync
 
 __all__ = [
     'project_audit_log_create',
@@ -38,4 +39,5 @@ __all__ = [
     'project_update_github_metadata',
     'project_vulnerability_create',
     'project_vulnerability_mark_resolved',
+    'github_issues_sync',
 ]

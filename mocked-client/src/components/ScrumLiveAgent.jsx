@@ -269,6 +269,7 @@ const ScrumLiveAgent = () => {
     }
   };
 
+
   return (
     <div style={{ display: 'flex', gap: '20px', maxWidth: '1400px', margin: '0 auto', height: 'calc(100vh - 120px)', padding: '20px' }}>
       
@@ -368,6 +369,7 @@ const ScrumLiveAgent = () => {
               </div>
             </div>
           ))}
+          
           {transcripts.length === 0 && (
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ccc', flexDirection: 'column', gap: '10px' }}>
                <div style={{ fontSize: '48px' }}>🎙️</div>

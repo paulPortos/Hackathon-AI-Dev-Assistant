@@ -1,6 +1,10 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from scrum.views import ProjectMeetingSettingsView
+from scrum.views import (
+    ProjectMeetingSettingsView,
+    GitHubIssuesSyncView,
+    GitHubIssuesListView
+)
 from scrum.views.kanban_views import (
     BoardViewSet, BoardColumnsView, ColumnDetailView, 
     ColumnReorderView, ColumnCardsView, CardDetailView, 
@@ -41,5 +45,17 @@ urlpatterns = [
         'projects/<int:project_id>/meeting-settings/',
         ProjectMeetingSettingsView.as_view(),
         name='project-meeting-settings-detail'
+    ),
+    
+    # GitHub Issues
+    path(
+        'projects/<int:project_id>/github-issues/sync/',
+        GitHubIssuesSyncView.as_view(),
+        name='github-issues-sync'
+    ),
+    path(
+        'projects/<int:project_id>/github-issues/',
+        GitHubIssuesListView.as_view(),
+        name='github-issues-list'
     ),
 ]

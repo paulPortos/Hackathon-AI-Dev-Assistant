@@ -72,6 +72,8 @@ export const apiPaths = {
   scrumSessions: '/scrum/sessions/',
   scrumSessionDetail: (sessionId) => `/scrum/sessions/${sessionId}/`,
   scrumSessionMessages: (sessionId) => `/scrum/sessions/${sessionId}/messages/`,
+  projectGitHubIssues: (projectId) => `/projects/${projectId}/github-issues/`,
+  projectGitHubIssuesSync: (projectId) => `/projects/${projectId}/github-issues/sync/`,
 };
 
 const buildApiUrl = (path) => {

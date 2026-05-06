@@ -104,4 +104,10 @@ export const api = {
   createScrumSession: (data) => apiRequest(apiPaths.scrumSessions, { method: 'POST', body: data }),
   getScrumSession: (sessionId) => apiRequest(apiPaths.scrumSessionDetail(sessionId)),
   listScrumMessages: (sessionId) => apiRequest(apiPaths.scrumSessionMessages(sessionId)),
+  
+  // GitHub Issues
+  listGitHubIssues: (projectId, state = 'open') => 
+    apiRequest(`${apiPaths.projectGitHubIssues(projectId)}?state=${state}`),
+  syncGitHubIssues: (projectId) => 
+    apiRequest(apiPaths.projectGitHubIssuesSync(projectId), { method: 'POST' }),
 };

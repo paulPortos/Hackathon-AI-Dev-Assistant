@@ -13,6 +13,10 @@ from scrum.agents.scrum.tools import (
     kanban_move_card,
     kanban_update_card,
     kanban_delete_card,
+    GITHUB_ISSUES_FUNCTION_DECLARATIONS,
+    github_list_issues,
+    github_get_issue,
+    github_sync_issues_tool,
 )
 from asgiref.sync import sync_to_async
 from scrum.models.scrum_session import ScrumSession
@@ -22,6 +26,7 @@ from projects.models.project import Project
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import AccessToken
 from urllib.parse import parse_qs
+from scrum.models.github_issue import GitHubIssue
 
 User = get_user_model()
 
@@ -40,7 +45,7 @@ class ScrumLiveConsumer(AsyncWebsocketConsumer):
         # Buffers for aggregating streamed transcriptions
         self.user_text_buffer = ""
         self.assistant_text_buffer = ""
-
+        
         # Fallback to JWT token in query string if user is not authenticated
         if not self.user or not self.user.is_authenticated:
             query_string = self.scope.get('query_string', b'').decode()
@@ -114,6 +119,22 @@ class ScrumLiveConsumer(AsyncWebsocketConsumer):
             status=status
         )
 
+    @sync_to_async
+    def get_github_issues_snapshot(self):
+        """Fetch top 30 open issues from DB for context bake."""
+        issues = GitHubIssue.objects.filter(project_id=self.project_id, state='open').order_by('-github_number')[:30]
+        return list(issues)
+
+    def format_issues_for_prompt(self, issues):
+        """Format issues list into a concise string for system prompt."""
+        if not issues:
+            return "No open GitHub issues found."
+        
+        lines = []
+        for i in issues:
+            lines.append(f"#{i.github_number}: {i.title}")
+        return "\n".join(lines)
+
     async def run_gemini_session(self):
         # Fetch history to provide context
         history = await self.get_session_history()
@@ -132,6 +153,16 @@ class ScrumLiveConsumer(AsyncWebsocketConsumer):
         else:
             system_instruction = base_instruction
 
+        # Context bake: GitHub Issues
+        issues_snapshot = await self.get_github_issues_snapshot()
+        github_context = self.format_issues_for_prompt(issues_snapshot)
+        
+        project = await sync_to_async(Project.objects.get)(id=self.project_id)
+        
+        system_instruction += f"\n\n## Project GitHub Repository: {project.github_full_name}"
+        system_instruction += f"\n## Open GitHub Issues (snapshot):\n{github_context}"
+        system_instruction += "\n\nYou can use the github_* tools to query live data for issues."
+
         config = {
             "response_modalities": ["AUDIO"],
             "speech_config": {
@@ -141,7 +172,7 @@ class ScrumLiveConsumer(AsyncWebsocketConsumer):
                     }
                 }
             },
-            "tools": [{"function_declarations": KANBAN_FUNCTION_DECLARATIONS}],
+            "tools": [{"function_declarations": KANBAN_FUNCTION_DECLARATIONS + GITHUB_ISSUES_FUNCTION_DECLARATIONS}],
             "system_instruction": system_instruction
         }
 
@@ -231,16 +262,28 @@ class ScrumLiveConsumer(AsyncWebsocketConsumer):
             "kanban_move_card": kanban_move_card,
             "kanban_update_card": kanban_update_card,
             "kanban_delete_card": kanban_delete_card,
+            "github_list_issues": github_list_issues,
+            "github_get_issue": github_get_issue,
+            "github_sync_issues": github_sync_issues_tool,
         }
         handler = TOOL_MAP.get(name)
         if not handler:
             return {"error": f"Unknown tool: {name}"}
         try:
-            result = await handler(**args)
+            # Special handling for tools that need 'user' or 'project_id' context
+            if name == "github_sync_issues":
+                result = await handler(project_id=self.project_id, user=self.user, **args)
+            elif name in ("github_list_issues", "github_get_issue"):
+                result = await handler(project_id=self.project_id, **args)
+            else:
+                result = await handler(**args)
+            
             await self.save_tool_call(name, args, result, ScrumToolCall.Status.SUCCESS)
+            
             # Notify frontend of changes
             if name in ("kanban_add_card", "kanban_move_card", "kanban_update_card", "kanban_delete_card"):
                 await self.send(text_data=json.dumps({"type": "kanban_update"}))
+                
             return result
         except Exception as e:
             await self.save_tool_call(name, args, {"error": str(e)}, ScrumToolCall.Status.ERROR)
