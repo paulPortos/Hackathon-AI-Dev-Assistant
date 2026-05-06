@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../api';
 import { normalizeList } from '../api/client';
+import { WS_ROOT } from '../api/config';
 
 const ScrumLiveAgent = () => {
   const [searchParams] = useSearchParams();
@@ -15,6 +16,28 @@ const ScrumLiveAgent = () => {
   const [inputText, setInputText] = useState('');
   const [jsonLogs, setJsonLogs] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  // UI States
+  const [leftSidebarVisible, setLeftSidebarVisible] = useState(true);
+  const [rightSidebarVisible, setRightSidebarVisible] = useState(true);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 900);
+
+  // Handle window resize for responsiveness
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 900;
+      setIsMobile(mobile);
+      if (mobile) {
+        setLeftSidebarVisible(false);
+        setRightSidebarVisible(false);
+      } else {
+        setLeftSidebarVisible(true);
+        setRightSidebarVisible(true);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const ws = useRef(null);
   const playbackAudioContext = useRef(null);
@@ -91,6 +114,23 @@ const ScrumLiveAgent = () => {
     }
   };
 
+  const deleteSession = async (e, sessionId) => {
+    e.stopPropagation();
+    if (!window.confirm("Are you sure you want to delete this session?")) return;
+    
+    try {
+      await api.deleteScrumSession(sessionId);
+      setSessions(prev => prev.filter(s => s.id !== sessionId));
+      if (currentSessionId === sessionId) {
+        setCurrentSessionId(null);
+        setTranscripts([]);
+      }
+    } catch (err) {
+      console.error('Error deleting session:', err);
+      alert('Failed to delete session');
+    }
+  };
+
   const addJsonLog = (direction, data) => {
     const cleanData = JSON.parse(JSON.stringify(data));
     const maskAudio = (obj) => {
@@ -129,7 +169,7 @@ const ScrumLiveAgent = () => {
     nextStartTime.current = 0;
     const sessionPart = currentSessionId ? `${currentSessionId}/` : '';
     const token = localStorage.getItem('mocked-client.access-token');
-    const wsUrl = `ws://localhost:8000/ws/scrum-live/${projectId}/${sessionPart}${token ? `?token=${token}` : ''}`;
+    const wsUrl = `${WS_ROOT}/scrum-live/${projectId}/${sessionPart}${token ? `?token=${token}` : ''}`;
     ws.current = new WebSocket(wsUrl);
 
     ws.current.onopen = () => {
@@ -271,153 +311,298 @@ const ScrumLiveAgent = () => {
 
 
   return (
-    <div style={{ display: 'flex', gap: '20px', maxWidth: '1400px', margin: '0 auto', height: 'calc(100vh - 120px)', padding: '20px' }}>
+    <div style={{ 
+      display: 'flex', 
+      flexDirection: 'column',
+      gap: isMobile ? '10px' : '20px', 
+      maxWidth: '1600px', 
+      margin: '0 auto', 
+      height: isMobile ? 'auto' : 'calc(100vh - 120px)', 
+      minHeight: isMobile ? 'calc(100vh - 100px)' : 'unset',
+      padding: isMobile ? '10px' : '20px',
+      position: 'relative'
+    }}>
       
-      {/* Session Sidebar */}
-      <div style={{ width: '280px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
-        <div style={{ padding: '15px', background: 'white', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-          <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#666', marginBottom: '8px' }}>PROJECT</label>
-          <select 
-            value={projectId} 
-            onChange={(e) => setProjectId(e.target.value)}
-            style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ddd' }}
-          >
-            {projects.map(p => <option key={p.id} value={p.id}>{p.github_full_name || p.name}</option>)}
-          </select>
+      {/* Top Toolbar for Sidebar Toggles */}
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        padding: '10px 20px',
+        background: 'rgba(255, 255, 255, 0.7)',
+        backdropFilter: 'blur(10px)',
+        borderRadius: '16px',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
+        border: '1px solid rgba(135, 120, 89, 0.1)',
+        marginBottom: '10px'
+      }}>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           <button 
-            onClick={createNewSession}
-            style={{ width: '100%', marginTop: '12px', padding: '10px', background: 'var(--accent-600, #2196F3)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}
+            onClick={() => setLeftSidebarVisible(!leftSidebarVisible)}
+            style={{ 
+              background: leftSidebarVisible ? 'var(--sage-700, #4b5a3a)' : 'white', 
+              color: leftSidebarVisible ? 'white' : 'var(--ink-700, #3b4237)',
+              border: '1px solid rgba(0,0,0,0.1)', 
+              borderRadius: '12px', 
+              padding: '8px 16px', 
+              fontSize: '13px', 
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+              boxShadow: leftSidebarVisible ? '0 4px 12px rgba(75, 90, 58, 0.3)' : '0 2px 4px rgba(0,0,0,0.05)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
           >
-            + New Session
+            {leftSidebarVisible ? 'Hide Sessions ◀' : 'Show Sessions ▶'}
           </button>
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto', background: 'white', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', padding: '10px' }}>
-          <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#666', padding: '5px 10px' }}>PAST SESSIONS</label>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '8px' }}>
-            {sessions.map(s => (
-              <div 
-                key={s.id} 
-                onClick={() => loadSession(s.id)}
-                style={{ 
-                  padding: '10px', 
-                  borderRadius: '8px', 
-                  cursor: 'pointer',
-                  background: currentSessionId === s.id ? '#e3f2fd' : 'transparent',
-                  border: currentSessionId === s.id ? '1px solid #2196F3' : '1px solid transparent',
-                  transition: 'all 0.2s'
-                }}
-              >
-                <div style={{ fontSize: '13px', fontWeight: 600 }}>Session #{s.id}</div>
-                <div style={{ fontSize: '11px', color: '#888' }}>{new Date(s.created_at).toLocaleString()}</div>
-                <div style={{ fontSize: '11px', color: '#666' }}>{s.message_count} messages</div>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <button 
+            onClick={() => setRightSidebarVisible(!rightSidebarVisible)}
+            style={{ 
+              background: rightSidebarVisible ? 'var(--accent-500, #c57b3f)' : 'white', 
+              color: rightSidebarVisible ? 'white' : 'var(--ink-700, #3b4237)',
+              border: '1px solid rgba(0,0,0,0.1)', 
+              borderRadius: '12px', 
+              padding: '8px 16px', 
+              fontSize: '13px', 
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+              boxShadow: rightSidebarVisible ? '0 4px 12px rgba(197, 123, 63, 0.3)' : '0 2px 4px rgba(0,0,0,0.05)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+          >
+            {rightSidebarVisible ? 'Hide Console ▶' : '◀ Show Console'}
+          </button>
+        </div>
+      </div>
+
+      <div style={{ 
+        display: 'flex', 
+        flex: 1, 
+        flexDirection: isMobile ? 'column' : 'row',
+        gap: isMobile ? '15px' : '20px', 
+        padding: '5px',
+        overflow: isMobile ? 'visible' : 'hidden' // Allow scrolling on mobile if sidebars are stacked
+      }}>
+        {/* Session Sidebar */}
+        <div style={{ 
+          width: isMobile ? '100%' : (leftSidebarVisible ? '300px' : '0px'), 
+          opacity: leftSidebarVisible ? 1 : 0,
+          display: leftSidebarVisible ? 'flex' : 'none',
+          flexDirection: 'column', 
+          gap: '15px', 
+          transition: 'all 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+          overflow: 'hidden',
+          flexShrink: 0
+        }}>
+          <div style={{ padding: '20px', background: 'white', borderRadius: '20px', boxShadow: '0 8px 30px rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.02)' }}>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#999', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Project Context</label>
+            <select 
+              value={projectId} 
+              onChange={(e) => setProjectId(e.target.value)}
+              style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid #eee', background: '#fcfcfc', fontSize: '14px', outline: 'none' }}
+            >
+              {projects.map(p => <option key={p.id} value={p.id}>{p.github_full_name || p.name}</option>)}
+            </select>
+            <button 
+              onClick={createNewSession}
+              style={{ width: '100%', marginTop: '15px', padding: '12px', background: 'var(--accent-500, #c57b3f)', color: 'white', border: 'none', borderRadius: '12px', cursor: 'pointer', fontWeight: 700, boxShadow: '0 10px 20px rgba(197, 123, 63, 0.2)', transition: 'all 0.2s' }}
+              onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
+              onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+            >
+              + New Session
+            </button>
+          </div>
+
+          <div style={{ flex: 1, overflowY: 'auto', background: 'white', borderRadius: '20px', boxShadow: '0 8px 30px rgba(0,0,0,0.04)', padding: '15px', border: '1px solid rgba(0,0,0,0.02)' }}>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#999', padding: '5px 10px', textTransform: 'uppercase' }}>History</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
+              {sessions.map(s => (
+                <div 
+                  key={s.id} 
+                  onClick={() => loadSession(s.id)}
+                  style={{ 
+                    padding: '12px 15px', 
+                    borderRadius: '14px', 
+                    cursor: 'pointer',
+                    background: currentSessionId === s.id ? 'var(--khaki-50, #f8f4ea)' : 'transparent',
+                    border: currentSessionId === s.id ? '1px solid var(--accent-300, #e4b47f)' : '1px solid transparent',
+                    transition: 'all 0.2s ease',
+                    position: 'relative'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div style={{ overflow: 'hidden' }}>
+                      <div style={{ fontSize: '14px', fontWeight: 600, color: currentSessionId === s.id ? 'var(--ink-900)' : 'var(--ink-700)' }}>Session #{s.id}</div>
+                      <div style={{ fontSize: '11px', color: '#aaa', marginTop: '2px' }}>{new Date(s.created_at).toLocaleDateString()} at {new Date(s.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                    </div>
+                    <button 
+                      onClick={(e) => deleteSession(e, s.id)}
+                      style={{ 
+                        background: 'rgba(255, 82, 82, 0.1)', 
+                        border: 'none', 
+                        color: '#ff5252', 
+                        cursor: 'pointer',
+                        padding: '6px',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        transition: 'all 0.2s'
+                      }}
+                      onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255, 82, 82, 0.2)'}
+                      onMouseOut={(e) => e.currentTarget.style.background = 'rgba(255, 82, 82, 0.1)'}
+                      title="Delete Session"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {sessions.length === 0 && <div style={{ textAlign: 'center', padding: '40px 20px', color: '#ccc', fontSize: '13px' }}>No sessions found</div>}
+            </div>
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div style={{ 
+          flex: 1, 
+          padding: isMobile ? '15px' : '25px', 
+          borderRadius: '24px', 
+          background: 'white', 
+          boxShadow: '0 10px 40px rgba(0,0,0,0.06)', 
+          border: '1px solid rgba(0,0,0,0.02)', 
+          display: 'flex', 
+          flexDirection: 'column',
+          minHeight: isMobile ? '450px' : 'unset',
+          maxHeight: isMobile ? 'calc(100vh - 200px)' : 'unset' // Better constraint for mobile viewport
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', marginBottom: '25px', flexDirection: isMobile ? 'column' : 'row', gap: '15px' }}>
+            <h2 style={{ margin: 0, fontFamily: 'Fraunces, serif', fontSize: isMobile ? '20px' : '24px' }}>Scrum Live Master {currentSessionId && <span style={{ color: 'var(--ink-500)', fontSize: isMobile ? '14px' : '16px', fontWeight: 400, marginLeft: isMobile ? '0' : '12px', display: isMobile ? 'block' : 'inline' }}>— Session #{currentSessionId}</span>}</h2>
+            
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              {!connected ? (
+                <button 
+                  onClick={connect} 
+                  disabled={loading}
+                  style={{ padding: '12px 24px', background: 'var(--sage-700, #4b5a3a)', color: 'white', border: 'none', borderRadius: '14px', cursor: 'pointer', fontWeight: 600, boxShadow: '0 8px 20px rgba(75, 90, 58, 0.2)' }}
+                >
+                  {loading ? 'Preparing...' : 'Connect to Agent'}
+                </button>
+              ) : (
+                <>
+                  <button onClick={startRecording} style={{ padding: '12px 24px', background: 'var(--accent-500, #c57b3f)', color: 'white', border: 'none', borderRadius: '14px', cursor: 'pointer', fontWeight: 600, boxShadow: '0 8px 20px rgba(197, 123, 63, 0.2)' }}>
+                    🎤 Start Mic
+                  </button>
+                  <button onClick={stopRecording} style={{ padding: '12px 24px', background: '#f0f0f0', color: 'var(--ink-700)', border: 'none', borderRadius: '14px', cursor: 'pointer', fontWeight: 600 }}>
+                    ⏹️ Stop
+                  </button>
+                  <button onClick={disconnect} style={{ padding: '12px 24px', background: 'rgba(255, 82, 82, 0.1)', color: '#ff5252', border: 'none', borderRadius: '14px', cursor: 'pointer', fontWeight: 600 }}>
+                    Disconnect
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #f8f8f8', borderRadius: '20px', padding: '25px', marginBottom: '25px', background: '#fafafa', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {transcripts.map((t, i) => (
+              <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: t.source === 'user' ? 'flex-end' : 'flex-start', animation: 'fadeIn 0.3s ease-out' }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--ink-500)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '1px', marginLeft: t.source === 'user' ? 0 : '12px', marginRight: t.source === 'user' ? '12px' : 0 }}>
+                  {t.source === 'user' ? 'Collaborator' : 'Scrum Master'}
+                </div>
+                <div style={{ 
+                  maxWidth: '75%', 
+                  padding: '16px 20px', 
+                  borderRadius: '20px', 
+                  background: t.source === 'user' ? 'var(--accent-500, #c57b3f)' : 'white', 
+                  color: t.source === 'user' ? 'white' : 'var(--ink-900)',
+                  borderTopRightRadius: t.source === 'user' ? '4px' : '20px',
+                  borderTopLeftRadius: t.source === 'user' ? '20px' : '4px',
+                  boxShadow: '0 4px 15px rgba(0,0,0,0.04)',
+                  border: t.source === 'user' ? 'none' : '1px solid #eee',
+                  lineHeight: 1.6,
+                  fontSize: '15px'
+                }}>
+                  {t.text}
+                </div>
               </div>
             ))}
-            {sessions.length === 0 && <div style={{ textAlign: 'center', padding: '20px', color: '#999', fontSize: '13px' }}>No sessions yet</div>}
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div style={{ flex: 1, padding: '20px', borderRadius: '12px', background: 'white', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h2 style={{ margin: 0 }}>Scrum Live Agent {currentSessionId && <span style={{ color: '#888', fontSize: '16px', fontWeight: 400 }}>— Session #{currentSessionId}</span>}</h2>
-          
-          <div style={{ display: 'flex', gap: '10px' }}>
-            {!connected ? (
-              <button 
-                onClick={connect} 
-                disabled={loading}
-                style={{ padding: '10px 20px', background: '#4CAF50', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}
-              >
-                {loading ? 'Loading...' : 'Connect to Agent'}
-              </button>
-            ) : (
-              <>
-                <button onClick={startRecording} style={{ padding: '10px 20px', background: '#2196F3', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>
-                  🎤 Start Mic
-                </button>
-                <button onClick={stopRecording} style={{ padding: '10px 20px', background: '#9e9e9e', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>
-                  ⏹️ Stop Mic
-                </button>
-                <button onClick={disconnect} style={{ padding: '10px 20px', background: '#f44336', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>
-                  Disconnect
-                </button>
-              </>
+            
+            {transcripts.length === 0 && (
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ddd', flexDirection: 'column', gap: '15px' }}>
+                 <div style={{ fontSize: '64px', opacity: 0.5 }}>🎙️</div>
+                 <div style={{ fontSize: '16px', fontWeight: 500 }}>Connection established. Waiting for your input.</div>
+              </div>
             )}
           </div>
+
+          <div style={{ display: 'flex', gap: '15px' }}>
+            <input 
+              type="text" 
+              value={inputText} 
+              onChange={(e) => setInputText(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && sendText()}
+              placeholder="Collaborate with your AI Scrum Master..."
+              style={{ flex: 1, padding: '18px 25px', borderRadius: '18px', border: '1px solid #eee', outline: 'none', fontSize: '16px', background: '#fdfdfd', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)' }}
+            />
+            <button 
+              onClick={sendText} 
+              style={{ padding: '0 35px', background: 'var(--sage-700, #4b5a3a)', color: 'white', border: 'none', borderRadius: '18px', cursor: 'pointer', fontWeight: 700, boxShadow: '0 8px 20px rgba(75, 90, 58, 0.2)', transition: 'all 0.2s' }}
+              onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
+              onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+            >
+              Send
+            </button>
+          </div>
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #f0f0f0', borderRadius: '12px', padding: '20px', marginBottom: '20px', background: '#fcfcfc', display: 'flex', flexDirection: 'column', gap: '15px' }}>
-          {transcripts.map((t, i) => (
-            <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: t.source === 'user' ? 'flex-end' : 'flex-start' }}>
-              <div style={{ fontSize: '11px', color: '#999', marginBottom: '4px', marginLeft: t.source === 'user' ? 0 : '8px', marginRight: t.source === 'user' ? '8px' : 0 }}>
-                {t.source === 'user' ? 'YOU' : 'GEMINI'}
-              </div>
-              <div style={{ 
-                maxWidth: '80%', 
-                padding: '12px 16px', 
-                borderRadius: '16px', 
-                background: t.source === 'user' ? '#2196F3' : '#f0f0f0', 
-                color: t.source === 'user' ? 'white' : '#333',
-                borderBottomRightRadius: t.source === 'user' ? '4px' : '16px',
-                borderBottomLeftRadius: t.source === 'user' ? '16px' : '4px',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-                lineHeight: 1.5
-              }}>
-                {t.text}
-              </div>
-            </div>
-          ))}
+        {/* JSON Log Sidebar */}
+        <div style={{ 
+          width: isMobile ? '100%' : (rightSidebarVisible ? '360px' : '0px'), 
+          opacity: rightSidebarVisible ? 1 : 0,
+          display: rightSidebarVisible ? 'flex' : 'none',
+          padding: rightSidebarVisible ? (isMobile ? '20px' : '25px') : '0px', 
+          borderRadius: '24px', 
+          background: 'white', 
+          color: 'var(--ink-900, #1f241d)', 
+          flexDirection: 'column',
+          transition: 'all 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+          overflow: 'hidden',
+          flexShrink: 0,
+          boxShadow: '0 10px 40px rgba(0,0,0,0.06)',
+          border: '1px solid rgba(0,0,0,0.02)',
+          marginTop: isMobile ? '10px' : '0px'
+        }}>
+          <h4 style={{ marginTop: 0, color: 'var(--accent-500, #c57b3f)', textTransform: 'uppercase', fontSize: '12px', letterSpacing: '2px', fontWeight: 800, marginBottom: '20px' }}>Multimodal Streams</h4>
           
-          {transcripts.length === 0 && (
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ccc', flexDirection: 'column', gap: '10px' }}>
-               <div style={{ fontSize: '48px' }}>🎙️</div>
-               <div>Select a session and connect to start the conversation</div>
-            </div>
-          )}
-        </div>
-
-        <div style={{ display: 'flex', gap: '12px' }}>
-          <input 
-            type="text" 
-            value={inputText} 
-            onChange={(e) => setInputText(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && sendText()}
-            placeholder="Type your message to Scrum Master..."
-            style={{ flex: 1, padding: '12px 20px', borderRadius: '10px', border: '1px solid #ddd', outline: 'none', fontSize: '15px' }}
-          />
-          <button 
-            onClick={sendText} 
-            style={{ padding: '0 25px', background: '#2196F3', color: 'white', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 600 }}
-          >
-            Send
-          </button>
-        </div>
-      </div>
-
-      {/* JSON Log Sidebar (Optional/Debug) */}
-      <div style={{ width: '350px', padding: '20px', borderRadius: '12px', background: '#1e1e1e', color: '#eee', display: 'flex', flexDirection: 'column' }}>
-        <h4 style={{ marginTop: 0, color: '#888', textTransform: 'uppercase', fontSize: '12px', letterSpacing: '1px' }}>Multimodal Live API Streams</h4>
-        <div style={{ flex: 1, overflowY: 'auto', fontSize: '11px', fontFamily: '"Fira Code", monospace' }}>
-          {jsonLogs.map((log, i) => (
-            <div key={i} style={{ 
-              marginBottom: '12px', 
-              padding: '10px', 
-              background: '#2d2d2d', 
-              borderRadius: '6px', 
-              borderLeft: `3px solid ${log.direction === 'sent' ? '#2196F3' : '#4CAF50'}` 
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', color: '#888' }}>
-                <span style={{ fontWeight: 600 }}>{log.direction.toUpperCase()}</span>
-                <span>{log.timestamp}</span>
+          <div style={{ flex: 1, overflowY: 'auto', fontSize: '12px', fontFamily: '"Space Mono", monospace', paddingRight: '5px' }}>
+            {jsonLogs.map((log, i) => (
+              <div key={i} style={{ 
+                marginBottom: '15px', 
+                padding: '12px', 
+                background: 'var(--khaki-50, #f8f4ea)', 
+                borderRadius: '12px', 
+                borderLeft: `4px solid ${log.direction === 'sent' ? 'var(--accent-500)' : 'var(--sage-700)'}`,
+                border: '1px solid rgba(135, 120, 89, 0.1)',
+                overflow: 'hidden'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: 'var(--ink-500)', fontSize: '10px', fontWeight: 700 }}>
+                  <span style={{ color: log.direction === 'sent' ? 'var(--accent-500)' : 'var(--sage-600)' }}>{log.direction.toUpperCase()}</span>
+                  <span>{log.timestamp}</span>
+                </div>
+                <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all', color: 'var(--ink-700)', lineHeight: 1.4 }}>
+                  {JSON.stringify(log.data, null, 2)}
+                </pre>
               </div>
-              <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all', color: '#ccc' }}>
-                {JSON.stringify(log.data, null, 2)}
-              </pre>
-            </div>
-          ))}
-          {jsonLogs.length === 0 && <div style={{ color: '#555', textAlign: 'center', marginTop: '40px' }}>Waiting for stream data...</div>}
+            ))}
+            {jsonLogs.length === 0 && <div style={{ color: 'var(--ink-500)', textAlign: 'center', marginTop: '60px', fontStyle: 'italic' }}>Live stream data will appear here...</div>}
+          </div>
         </div>
       </div>
     </div>

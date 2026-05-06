@@ -36,8 +36,9 @@ export default function KanbanPage() {
     }
   };
 
-  const loadBoardData = async (boardId) => {
-    setStatus('loading');
+  const loadBoardData = async (boardId, options = {}) => {
+    const { silent = false } = options;
+    if (!silent) setStatus('loading');
     try {
       const [colPayload, labelPayload] = await Promise.all([
         api.listColumns(boardId),
@@ -198,7 +199,7 @@ export default function KanbanPage() {
       const data = JSON.parse(event.data);
       if (data.type === 'kanban_message') {
         console.log('Kanban update received:', data);
-        loadBoardData(selectedBoard.id);
+        loadBoardData(selectedBoard.id, { silent: true });
       }
     };
 
