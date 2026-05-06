@@ -94,4 +94,14 @@ export const api = {
   listEvents: () => apiRequest(apiPaths.calendarEvents),
   updateEvent: (id, data) => apiRequest(`${apiPaths.calendarEvents}${id}/`, { method: 'PATCH', body: data }),
   deleteEvent: (id) => apiRequest(`${apiPaths.calendarEvents}${id}/`, { method: 'DELETE' }),
+
+  // Scrum Sessions
+  listScrumSessions: (projectId) => {
+    let path = apiPaths.scrumSessions;
+    if (projectId) path += `?project_id=${projectId}`;
+    return apiRequest(path);
+  },
+  createScrumSession: (data) => apiRequest(apiPaths.scrumSessions, { method: 'POST', body: data }),
+  getScrumSession: (sessionId) => apiRequest(apiPaths.scrumSessionDetail(sessionId)),
+  listScrumMessages: (sessionId) => apiRequest(apiPaths.scrumSessionMessages(sessionId)),
 };

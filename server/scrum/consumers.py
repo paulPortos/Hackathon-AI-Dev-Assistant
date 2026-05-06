@@ -14,32 +14,124 @@ from scrum.agents.scrum.tools import (
     kanban_update_card,
     kanban_delete_card,
 )
+from asgiref.sync import sync_to_async
+from scrum.models.scrum_session import ScrumSession
+from scrum.models.scrum_message import ScrumMessage
+from scrum.models.scrum_tool_call import ScrumToolCall
+from projects.models.project import Project
+from django.contrib.auth import get_user_model
+from rest_framework_simplejwt.tokens import AccessToken
+from urllib.parse import parse_qs
+
+User = get_user_model()
 
 class ScrumLiveConsumer(AsyncWebsocketConsumer):
     async def connect(self):
-        await self.accept()
+        # Initialize attributes to avoid AttributeError in disconnect
+        self.gemini_task = None
+        self.session_ready = asyncio.Event()
+        self.session = None
+        
+        # Extract project_id and optional session_id from URL
+        self.project_id = self.scope['url_route']['kwargs'].get('project_id')
+        self.session_id = self.scope['url_route']['kwargs'].get('session_id')
+        self.user = self.scope.get('user')
+        
+        # Buffers for aggregating streamed transcriptions
+        self.user_text_buffer = ""
+        self.assistant_text_buffer = ""
+
+        # Fallback to JWT token in query string if user is not authenticated
+        if not self.user or not self.user.is_authenticated:
+            query_string = self.scope.get('query_string', b'').decode()
+            query_params = parse_qs(query_string)
+            token = query_params.get('token', [None])[0]
+            if token:
+                try:
+                    access_token = AccessToken(token)
+                    user_id = access_token['user_id']
+                    self.user = await sync_to_async(User.objects.get)(id=user_id)
+                    print(f"WebSocket auth success via JWT: {self.user}")
+                except Exception as e:
+                    print(f"WebSocket auth failed via JWT: {e}")
+
+        if not self.user or not self.user.is_authenticated:
+            print("WebSocket connect failed: User not authenticated")
+            await self.close(code=4003) # Unauthorized
+            return
+
+        try:
+            # Verify project exists and load/create session
+            self.scrum_session = await self.get_or_create_session()
+            await self.accept()
+            print(f"WebSocket connected: project={self.project_id}, session={self.scrum_session.id}")
+        except Exception as e:
+            print(f"WebSocket connect error: {e}")
+            await self.close()
+            return
         
         # Initialize Gemini client
         api_key = os.getenv("GOOGLE_API_KEY")
-        self.session_ready = asyncio.Event()
         self.client = genai.Client(api_key=api_key, http_options={'api_version': 'v1beta'})
 
         self.model_id = "gemini-3.1-flash-live-preview"
         
-        # Start Gemini session
-        self.session = None
-        self.gemini_task = None
-        
         try:
-            # We use a context manager to ensure the session is handled, 
-            # but since we need it to persist across receive calls, 
-            # we'll manage the lifecycle manually or via a long-running task.
             self.gemini_task = asyncio.create_task(self.run_gemini_session())
         except Exception as e:
             print(f"Error starting Gemini session: {e}")
             await self.close()
 
+    @sync_to_async
+    def get_or_create_session(self):
+        project = Project.objects.get(id=self.project_id)
+        if self.session_id:
+            return ScrumSession.objects.get(id=self.session_id, user=self.user, project=project)
+        return ScrumSession.objects.create(user=self.user, project=project, status=ScrumSession.Status.ACTIVE)
+
+    @sync_to_async
+    def get_session_history(self):
+        messages = ScrumMessage.objects.filter(session=self.scrum_session).order_by('-created_at')[:20]
+        # Reverse to get chronological order
+        return list(reversed(messages))
+
+    @sync_to_async
+    def save_message(self, role, text, input_type='text'):
+        return ScrumMessage.objects.create(
+            session=self.scrum_session,
+            role=role,
+            text_content=text,
+            input_type=input_type
+        )
+
+    @sync_to_async
+    def save_tool_call(self, name, args, result, status):
+        return ScrumToolCall.objects.create(
+            session=self.scrum_session,
+            tool_name=name,
+            safe_input_summary=args,
+            safe_result_summary=result,
+            status=status
+        )
+
     async def run_gemini_session(self):
+        # Fetch history to provide context
+        history = await self.get_session_history()
+        history_text = "\n".join([f"{m.role.upper()}: {m.text_content}" for m in history])
+        
+        base_instruction = (
+            "You are a helpful Scrum Master assistant with access to the team's Kanban board. "
+            "You can view boards, add cards, move cards between columns, update card details, and delete cards. "
+            "When the user asks about tasks, first use kanban_list_boards and kanban_get_board_detail to understand the current state. "
+            "When the user asks to add, move, update, or delete tasks, use the appropriate tool. "
+            "Always confirm what you did after completing an action."
+        )
+
+        if history_text:
+            system_instruction = f"{base_instruction}\n\nPrevious conversation context:\n{history_text}\n\nPlease continue the conversation naturally based on this context."
+        else:
+            system_instruction = base_instruction
+
         config = {
             "response_modalities": ["AUDIO"],
             "speech_config": {
@@ -50,13 +142,7 @@ class ScrumLiveConsumer(AsyncWebsocketConsumer):
                 }
             },
             "tools": [{"function_declarations": KANBAN_FUNCTION_DECLARATIONS}],
-            "system_instruction": (
-                "You are a helpful Scrum Master assistant with access to the team's Kanban board. "
-                "You can view boards, add cards, move cards between columns, update card details, and delete cards. "
-                "When the user asks about tasks, first use kanban_list_boards and kanban_get_board_detail to understand the current state. "
-                "When the user asks to add, move, update, or delete tasks, use the appropriate tool. "
-                "Always confirm what you did after completing an action."
-            )
+            "system_instruction": system_instruction
         }
 
 
@@ -78,10 +164,12 @@ class ScrumLiveConsumer(AsyncWebsocketConsumer):
                             
                             if content.interrupted:
                                 print("Gemini Interrupted")
+                                await self.flush_buffers()
                                 await self.send(text_data=json.dumps({"type": "interrupted"}))
                             
                             if content.turn_complete:
                                 print("Gemini Turn Complete")
+                                await self.flush_buffers()
                                 await self.send(text_data=json.dumps({"type": "turn_complete"}))
 
                             if content.model_turn:
@@ -94,16 +182,20 @@ class ScrumLiveConsumer(AsyncWebsocketConsumer):
                                         }))
                             
                             if content.input_transcription:
+                                text = content.input_transcription.text
+                                self.user_text_buffer += text
                                 await self.send(text_data=json.dumps({
                                     "type": "transcription",
                                     "source": "user",
-                                    "text": content.input_transcription.text
+                                    "text": text
                                 }))
                             if content.output_transcription:
+                                text = content.output_transcription.text
+                                self.assistant_text_buffer += text
                                 await self.send(text_data=json.dumps({
                                     "type": "transcription",
                                     "source": "gemini",
-                                    "text": content.output_transcription.text
+                                    "text": text
                                 }))
                         
                         if response.tool_call:
@@ -145,18 +237,30 @@ class ScrumLiveConsumer(AsyncWebsocketConsumer):
             return {"error": f"Unknown tool: {name}"}
         try:
             result = await handler(**args)
+            await self.save_tool_call(name, args, result, ScrumToolCall.Status.SUCCESS)
             # Notify frontend of changes
             if name in ("kanban_add_card", "kanban_move_card", "kanban_update_card", "kanban_delete_card"):
                 await self.send(text_data=json.dumps({"type": "kanban_update"}))
             return result
         except Exception as e:
+            await self.save_tool_call(name, args, {"error": str(e)}, ScrumToolCall.Status.ERROR)
             return {"error": str(e)}
+
+    async def flush_buffers(self):
+        """Save buffered transcriptions to the database and clear them."""
+        if self.user_text_buffer.strip():
+            await self.save_message(ScrumMessage.Role.USER, self.user_text_buffer.strip(), ScrumMessage.InputType.AUDIO)
+            self.user_text_buffer = ""
+        
+        if self.assistant_text_buffer.strip():
+            await self.save_message(ScrumMessage.Role.ASSISTANT, self.assistant_text_buffer.strip(), ScrumMessage.InputType.AUDIO)
+            self.assistant_text_buffer = ""
 
 
     async def disconnect(self, close_code):
-        if self.gemini_task:
+        if getattr(self, 'gemini_task', None):
             self.gemini_task.cancel()
-        print("ScrumLiveConsumer disconnected")
+        print(f"ScrumLiveConsumer disconnected (code={close_code})")
 
     async def receive(self, text_data=None, bytes_data=None):
         # Wait for Gemini session to be ready
@@ -173,6 +277,7 @@ class ScrumLiveConsumer(AsyncWebsocketConsumer):
                 if msg_type == "text":
                     # User sent a text message
                     text = data.get("text")
+                    await self.save_message(ScrumMessage.Role.USER, text, ScrumMessage.InputType.TEXT)
                     await self.session.send_realtime_input(text=text)
                 
                 elif msg_type == "audio":

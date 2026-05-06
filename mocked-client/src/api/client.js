@@ -69,6 +69,9 @@ export const apiPaths = {
   commentDetail: ENDPOINTS.KANBAN.COMMENT_DETAIL,
   calendar: ENDPOINTS.CALENDAR,
   calendarEvents: ENDPOINTS.CALENDAR_EVENTS,
+  scrumSessions: '/scrum/sessions/',
+  scrumSessionDetail: (sessionId) => `/scrum/sessions/${sessionId}/`,
+  scrumSessionMessages: (sessionId) => `/scrum/sessions/${sessionId}/messages/`,
 };
 
 const buildApiUrl = (path) => {

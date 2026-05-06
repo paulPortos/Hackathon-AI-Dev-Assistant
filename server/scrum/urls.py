@@ -8,10 +8,13 @@ from scrum.views.kanban_views import (
     CardCommentsView, CommentDetailView
 )
 
+from scrum.views.scrum_session_views import ScrumSessionViewSet
+
 app_name = 'scrum'
 
 router = DefaultRouter()
 router.register(r'boards', BoardViewSet, basename='board')
+router.register(r'sessions', ScrumSessionViewSet, basename='scrum-session')
 
 urlpatterns = [
     path('', include(router.urls)),
