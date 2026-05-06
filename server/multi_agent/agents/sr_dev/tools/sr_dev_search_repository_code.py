@@ -1,10 +1,12 @@
 import base64
 import binascii
+import re
 from pathlib import PurePosixPath
 
 from django.core.exceptions import ObjectDoesNotExist
 
 from multi_agent.agents.sr_dev.tools.constants import (
+    ALWAYS_INCLUDE_FILENAMES,
     DEFAULT_SEARCH_EXTENSIONS,
     MAX_SEARCH_FILE_BYTES,
     MAX_SEARCH_RESULTS,
@@ -31,6 +33,9 @@ def sr_dev_search_repository_code(project_id, current_user_id, commit_sha, query
     def normalize_extensions(values):
         if not values:
             return DEFAULT_SEARCH_EXTENSIONS
+        special_values = {str(value).strip().lower() for value in values}
+        if special_values.intersection({'*', 'all', 'any'}):
+            return None
         normalized_values = set()
         for value in values:
             value = str(value).strip().lower()
@@ -47,8 +52,16 @@ def sr_dev_search_repository_code(project_id, current_user_id, commit_sha, query
             return False
         if path_prefix and not path.startswith(path_prefix.strip('/')):
             return False
-        if PurePosixPath(path).suffix.lower() not in extensions:
-            return False
+        if extensions is None:
+            return True
+        suffix = PurePosixPath(path).suffix.lower()
+        if suffix:
+            if suffix not in extensions:
+                return False
+        else:
+            filename = PurePosixPath(path).name
+            if filename not in ALWAYS_INCLUDE_FILENAMES:
+                return False
         return True
 
     def decode_github_file(github_file):
@@ -126,7 +139,37 @@ def sr_dev_search_repository_code(project_id, current_user_id, commit_sha, query
     except GitHubTokenError as exc:
         return error(exc.code, str(exc))
 
-    terms = [term.lower() for term in query.split() if term.strip()]
+    def expand_terms(raw_query):
+        synonyms = {
+            'auth': ['authentication', 'authorize', 'authorization', 'login'],
+            'db': ['database', 'postgres', 'postgresql'],
+            'cache': ['redis'],
+            'queue': ['worker', 'celery'],
+            'config': ['settings'],
+            'env': ['environment'],
+        }
+        tokens = [token for token in re.split(r'\s+', raw_query.strip().lower()) if token]
+        expanded = set()
+        for token in tokens:
+            expanded.add(token)
+            if token.endswith('s') and len(token) > 3:
+                expanded.add(token[:-1])
+            elif len(token) > 3:
+                expanded.add(f'{token}s')
+            if any(separator in token for separator in ('-', '_', '.')):
+                parts = [part for part in re.split(r'[-_.]', token) if part]
+                for part in parts:
+                    if len(part) > 2:
+                        expanded.add(part)
+                joined = ''.join(parts)
+                if len(joined) > 2:
+                    expanded.add(joined)
+            expanded.update(synonyms.get(token, []))
+        return [term for term in expanded if len(term) > 1]
+
+    terms = expand_terms(query)
+    if not terms:
+        return error('validation_error', 'query terms could not be derived')
     extensions = normalize_extensions(file_extensions)
     results = []
     scanned_files = 0
@@ -171,6 +214,11 @@ def sr_dev_search_repository_code(project_id, current_user_id, commit_sha, query
             skipped_files = 0
             search_mode = 'tree_scan'
 
+    if search_mode == 'github_code_search' and not results and not truncated:
+        search_mode = 'tree_scan'
+        scanned_files = 0
+        skipped_files = 0
+
     if search_mode == 'tree_scan':
         try:
             tree_data = fetch_github_repository_tree(
@@ -203,6 +251,7 @@ def sr_dev_search_repository_code(project_id, current_user_id, commit_sha, query
         'commit_sha': commit_sha,
         'query': query,
         'search_mode': search_mode,
+        'query_terms': terms,
         'results': results,
         'result_count': len(results),
         'scanned_files': scanned_files,

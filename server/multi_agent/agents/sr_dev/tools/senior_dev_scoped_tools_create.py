@@ -7,6 +7,7 @@ from multi_agent.agents.sr_dev.tools.sr_dev_get_context import sr_dev_get_contex
 from multi_agent.agents.sr_dev.tools.sr_dev_prepare_pm_handoff import sr_dev_prepare_pm_handoff
 from multi_agent.agents.sr_dev.tools.sr_dev_read_repository_file import sr_dev_read_repository_file
 from multi_agent.agents.sr_dev.tools.sr_dev_search_repository_code import sr_dev_search_repository_code
+from multi_agent.agents.sr_dev.tools.sr_dev_set_repository_ref import sr_dev_set_repository_ref
 
 
 def senior_dev_scoped_tools_create(*, session, message):
@@ -64,6 +65,24 @@ def senior_dev_scoped_tools_create(*, session, message):
             ),
         )
 
+    def set_repository_ref(reference: str):
+        """Update the session commit_sha/branch using a branch name, SHA, or 'latest'."""
+        input_payload = {'reference': reference}
+
+        def callback():
+            result = sr_dev_set_repository_ref(
+                project_id=session.project_id,
+                current_user_id=session.user_id,
+                reference=reference,
+            )
+            if result.get('ok'):
+                session.commit_sha = result.get('commit_sha') or session.commit_sha
+                session.branch_name = result.get('branch_name') or ''
+                session.save(update_fields=['commit_sha', 'branch_name', 'updated_at'])
+            return result
+
+        return record_tool_call('set_repository_ref', input_payload, callback)
+
     def read_file(path: str):
         """Read a UTF-8 repository file at the selected commit_sha."""
         return record_tool_call(
@@ -99,4 +118,4 @@ def senior_dev_scoped_tools_create(*, session, message):
             ),
         )
 
-    return [get_context, search_code, read_file, prepare_pm_handoff]
+    return [get_context, set_repository_ref, search_code, read_file, prepare_pm_handoff]

@@ -27,6 +27,14 @@ def senior_dev_finding_create_from_payload(*, session, message, payload, claim=N
     except ValueError:
         confidence_score = None
 
+    evidence = project_task_evidence_normalize(payload.get('evidence'))
+    confidence_reason = str(payload.get('confidence_reason') or '').strip()
+    if not evidence:
+        if confidence_score is not None:
+            confidence_score = min(confidence_score, 50)
+        if not confidence_reason:
+            confidence_reason = 'No repository evidence provided; verify in code.'
+
     return SeniorDevFinding.objects.create(
         session=session,
         message=message,
@@ -36,7 +44,7 @@ def senior_dev_finding_create_from_payload(*, session, message, payload, claim=N
         category=str(payload.get('category') or '').strip(),
         severity=severity,
         confidence_score=confidence_score,
-        confidence_reason=str(payload.get('confidence_reason') or '').strip(),
-        evidence=project_task_evidence_normalize(payload.get('evidence')),
+        confidence_reason=confidence_reason,
+        evidence=evidence,
         status=status,
     )

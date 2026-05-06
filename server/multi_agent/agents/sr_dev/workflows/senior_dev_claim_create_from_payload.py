@@ -1,4 +1,5 @@
 from multi_agent.models import SeniorDevClaim
+from projects.services import project_task_evidence_normalize
 
 
 def senior_dev_claim_create_from_payload(*, session, message, payload):
@@ -13,11 +14,9 @@ def senior_dev_claim_create_from_payload(*, session, message, payload):
     if status not in SeniorDevClaim.Status.values:
         status = SeniorDevClaim.Status.UNVERIFIED
 
-    evidence = payload.get('evidence') or []
-    if isinstance(evidence, dict):
-        evidence = [evidence]
-    if not isinstance(evidence, list):
-        evidence = [{'type': 'other', 'summary': str(evidence)}]
+    evidence = project_task_evidence_normalize(payload.get('evidence'))
+    if status == SeniorDevClaim.Status.VERIFIED and not evidence:
+        status = SeniorDevClaim.Status.UNVERIFIED
 
     return SeniorDevClaim.objects.create(
         session=session,

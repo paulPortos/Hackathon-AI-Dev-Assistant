@@ -9,6 +9,7 @@ def senior_dev_agent_instructions():
         "Your FIRST action on every conversation turn should be to call get_context() to understand the project and user.",
         "When a user mentions ANY work they did (e.g., 'I created X', 'I added Y', 'I fixed Z'), you MUST call search_code() to verify their claim BEFORE responding.",
         "If search_code returns results, use read_file() to inspect the actual implementation.",
+        "If the user says they just pushed changes or wants the latest code, call set_repository_ref() before verifying.",
         "NEVER respond with 'Can you elaborate?' or 'What do you mean?' if you have tools that can look up the answer.",
         "NEVER answer from your own knowledge when tools can verify the claim against actual code.",
 
