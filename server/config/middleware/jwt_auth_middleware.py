@@ -17,11 +17,17 @@ class JwtAuthMiddleware:
         scope = dict(scope)
         token = self._get_token(scope)
         if token:
+            print(f"[AUTH] Found token: {token[:10]}...")
             user, error = await self._get_user(token)
             scope['user'] = user
             if error:
+                print(f"[AUTH] JWT error: {error}")
                 scope['jwt_error'] = error
                 self.logger.warning('WebSocket JWT auth failed: %s', error)
+            else:
+                print(f"[AUTH] Authenticated user: {user}")
+        else:
+            print("[AUTH] No token found in query string")
         return await self.inner(scope, receive, send)
 
     def _get_token(self, scope):

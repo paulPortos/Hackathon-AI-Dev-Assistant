@@ -12,7 +12,7 @@ from multi_agent.agents.sr_dev.workflows.senior_dev_finding_create_from_payload 
 from multi_agent.agents.pm.workflows import project_manager_agent_process_handoff
 
 
-def senior_dev_message_process(*, session, user, input_type, text='', choice='', choice_payload=None, audio_file=None):
+def senior_dev_message_process(*, session, user, input_type, text='', choice='', choice_payload=None, audio_file=None, emit_tool_event=None):
     def resolve_text_and_payload():
         payload = {}
         if input_type == SeniorDevMessage.InputType.AUDIO:
@@ -38,7 +38,8 @@ def senior_dev_message_process(*, session, user, input_type, text='', choice='',
             structured_payload=structured_payload,
         )
 
-    tools = senior_dev_scoped_tools_create(session=session, message=user_message)
+    tools = senior_dev_scoped_tools_create(session=session, message=user_message, emit_tool_event=emit_tool_event)
+
     agent_error = None
     try:
         assistant_text = senior_dev_agent_run(session=session, user_message=user_message, tools=tools)

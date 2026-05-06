@@ -1,6 +1,4 @@
-from django.urls import re_path
-from .consumers import ScrumLiveConsumer
+# This file is intentionally empty.
+# All WebSocket routes are registered in multi_agent/routing.py
+websocket_urlpatterns = []
 
-websocket_urlpatterns = [
-    re_path(r'^ws/scrum-live/$', ScrumLiveConsumer.as_asgi()),
-]

@@ -14,8 +14,16 @@ from multi_agent.agents.sr_dev.tools.sr_dev_search_repository_code import sr_dev
 from multi_agent.agents.sr_dev.tools.sr_dev_set_repository_ref import sr_dev_set_repository_ref
 
 
-def senior_dev_scoped_tools_create(*, session, message):
+def senior_dev_scoped_tools_create(*, session, message, emit_tool_event=None):
     def record_tool_call(tool_name, input_payload, callback):
+        if emit_tool_event:
+            emit_tool_event({
+                'event': 'tool_event',
+                'phase': 'start',
+                'name': tool_name,
+                'args': senior_dev_tool_call_safe_summarize(tool_name=tool_name, payload=input_payload)
+            })
+        
         started_at = time.monotonic()
         safe_input = senior_dev_tool_call_safe_summarize(tool_name=tool_name, payload=input_payload)
         try:
@@ -30,6 +38,16 @@ def senior_dev_scoped_tools_create(*, session, message):
             return result
         finally:
             duration_ms = int((time.monotonic() - started_at) * 1000)
+            
+            if emit_tool_event:
+                emit_tool_event({
+                    'event': 'tool_event',
+                    'phase': 'done',
+                    'name': tool_name,
+                    'ok': status == SeniorDevToolCall.Status.SUCCESS,
+                    'duration_ms': duration_ms
+                })
+
             senior_dev_tool_call_create(
                 session=session,
                 message=message,
@@ -40,6 +58,7 @@ def senior_dev_scoped_tools_create(*, session, message):
                 duration_ms=duration_ms,
                 error_code=error_code,
             )
+
 
     def get_context():
         """Get project, current user, and project-role context for this Senior Dev review."""

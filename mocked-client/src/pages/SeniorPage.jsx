@@ -17,6 +17,54 @@ const findingStatusOptions = [
 ];
 
 const shortSha = (sha) => String(sha || '').slice(0, 7);
+const TOOL_LABELS = {
+  get_context: '📋 Loading project context',
+  set_repository_ref: '🔗 Resolving repository ref',
+  list_repository_tree: '🗂️ Scanning file tree',
+  search_code: '🔍 Searching code',
+  read_file: '📄 Reading file',
+  compare_repository_refs: '⚖️ Comparing refs',
+  get_commit_status: '✅ Checking commit status',
+  find_dependency_manifests: '📦 Finding dependencies',
+  prepare_pm_handoff: '📬 Preparing handoff',
+};
+
+function formatArgs(args) {
+  if (!args || typeof args !== 'object') return '';
+  const entries = Object.entries(args).slice(0, 2);
+  return entries.map(([k, v]) => `${k}: ${String(v).slice(0, 30)}`).join(', ');
+}
+
+function ThinkingBubble({ toolEvents = [] }) {
+  return (
+    <div className="message-bubble assistant thinking-bubble">
+      <div className="avatar">AI</div>
+      <div className="thinking-body">
+        {toolEvents.length > 0 ? (
+          <div className="tool-log">
+            {toolEvents.map((t, i) => (
+              <div key={i} className={`tool-log-row status-${t.status}`}>
+                <span className="tool-status-icon">
+                  {t.status === 'running' ? '⟳' : t.status === 'done' ? '✓' : '✗'}
+                </span>
+                <span className="tool-name">{TOOL_LABELS[t.name] || t.name}</span>
+                {t.args && <span className="tool-args">{formatArgs(t.args)}</span>}
+                {t.duration_ms !== null && (
+                  <span className="tool-duration">{t.duration_ms}ms</span>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : null}
+        <div className="thinking-dots">
+          <span />
+          <span />
+          <span />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function SeniorPage() {
   const [searchParams] = useSearchParams();
@@ -33,7 +81,9 @@ export default function SeniorPage() {
   const [findingStatusPendingId, setFindingStatusPendingId] = useState('');
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
+  const [toolEvents, setToolEvents] = useState([]);
   const socketRef = useRef(null);
+  const messagesEndRef = useRef(null);
   const autoCreatedRef = useRef(new Set());
   const pendingQueueRef = useRef([]);
 
@@ -127,6 +177,14 @@ export default function SeniorPage() {
     });
     setMessages((prev) => [...prev, pendingMessage]);
   };
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, toolEvents]);
 
   const appendServerMessage = (message) => {
     if (!message) return;
@@ -357,6 +415,30 @@ export default function SeniorPage() {
       if (payload.event === 'error') {
         setError(payload.message || 'WebSocket error');
       }
+
+      if (payload.event === 'tool_event') {
+        setToolEvents((prev) => {
+          if (payload.phase === 'start') {
+            return [
+              ...prev,
+              {
+                name: payload.name,
+                args: payload.args,
+                status: 'running',
+                duration_ms: null,
+              },
+            ];
+          }
+          if (payload.phase === 'done') {
+            return prev.map((t) =>
+              t.name === payload.name && t.status === 'running'
+                ? { ...t, status: payload.ok ? 'done' : 'error', duration_ms: payload.duration_ms }
+                : t
+            );
+          }
+          return prev;
+        });
+      }
     };
 
     socket.onerror = () => {
@@ -384,6 +466,7 @@ export default function SeniorPage() {
 
   const sendChoice = async (choiceText) => {
     if (!selectedSessionId) return;
+    setToolEvents([]);
     const sent = sendWsPayload({
       action: 'send_message',
       input_type: 'choice',
@@ -397,6 +480,7 @@ export default function SeniorPage() {
 
   const sendText = async () => {
     if (!selectedSessionId || !inputText.trim()) return;
+    setToolEvents([]);
     const textToSend = inputText.trim();
     const sent = sendWsPayload({
       action: 'send_message',
@@ -420,6 +504,10 @@ export default function SeniorPage() {
     }
     return defaultChoices;
   }, [lastAssistant]);
+
+  const isThinking = useMemo(() => {
+    return messages.length > 0 && messages[messages.length - 1]?.role === 'user';
+  }, [messages]);
 
   return (
     <div className="senior-layout" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '32px', height: 'calc(100vh - 180px)' }}>
@@ -449,6 +537,8 @@ export default function SeniorPage() {
               </div>
             ))
           )}
+          {isThinking && <ThinkingBubble toolEvents={toolEvents} />}
+          <div ref={messagesEndRef} />
         </div>
 
         <div className="chat-input-area" style={{ padding: '24px', background: 'rgba(0,0,0,0.02)', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
