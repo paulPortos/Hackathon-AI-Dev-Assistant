@@ -5,7 +5,7 @@ from scrum.models import Board, Column, Card, Label, Comment
 class BoardSerializer(serializers.ModelSerializer):
     class Meta:
         model = Board
-        fields = ['id', 'name', 'description', 'created_at', 'creator']
+        fields = ['id', 'name', 'description', 'created_at', 'creator', 'project']
         read_only_fields = ['creator']
 
 class ColumnSerializer(serializers.ModelSerializer):

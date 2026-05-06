@@ -13,6 +13,8 @@ from scrum.filters import CardFilter
 class BoardViewSet(viewsets.ModelViewSet):
     serializer_class = BoardSerializer
     permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['project']
 
     def get_queryset(self):
         return Board.objects.filter(creator=self.request.user)
