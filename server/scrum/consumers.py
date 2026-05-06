@@ -5,6 +5,15 @@ import base64
 from channels.generic.websocket import AsyncWebsocketConsumer
 from google import genai
 from google.genai import types
+from scrum.agents.scrum.tools import (
+    KANBAN_FUNCTION_DECLARATIONS,
+    kanban_list_boards,
+    kanban_get_board_detail,
+    kanban_add_card,
+    kanban_move_card,
+    kanban_update_card,
+    kanban_delete_card,
+)
 
 class ScrumLiveConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -40,7 +49,14 @@ class ScrumLiveConsumer(AsyncWebsocketConsumer):
                     }
                 }
             },
-            "system_instruction": "You are a helpful Scrum Master assistant. Help the team during their session."
+            "tools": [{"function_declarations": KANBAN_FUNCTION_DECLARATIONS}],
+            "system_instruction": (
+                "You are a helpful Scrum Master assistant with access to the team's Kanban board. "
+                "You can view boards, add cards, move cards between columns, update card details, and delete cards. "
+                "When the user asks about tasks, first use kanban_list_boards and kanban_get_board_detail to understand the current state. "
+                "When the user asks to add, move, update, or delete tasks, use the appropriate tool. "
+                "Always confirm what you did after completing an action."
+            )
         }
 
 
@@ -91,8 +107,16 @@ class ScrumLiveConsumer(AsyncWebsocketConsumer):
                                 }))
                         
                         if response.tool_call:
-                            # Placeholder for future tool handling
                             print(f"Tool call received: {response.tool_call}")
+                            function_responses = []
+                            for fc in response.tool_call.function_calls:
+                                result = await self.dispatch_tool(fc.name, fc.args or {})
+                                function_responses.append(types.FunctionResponse(
+                                    id=fc.id,
+                                    name=fc.name,
+                                    response={"result": result}
+                                ))
+                            await session.send_tool_response(function_responses=function_responses)
                     
                     # If the loop finishes naturally, it means the turn ended.
                     # We continue the while True loop to wait for the next turn's responses.
@@ -105,6 +129,28 @@ class ScrumLiveConsumer(AsyncWebsocketConsumer):
             await self.send(text_data=json.dumps({"type": "error", "message": str(e)}))
         finally:
             print("Gemini Session Closed")
+
+    async def dispatch_tool(self, name: str, args: dict) -> dict:
+        """Route tool calls to the appropriate kanban function."""
+        TOOL_MAP = {
+            "kanban_list_boards": kanban_list_boards,
+            "kanban_get_board_detail": kanban_get_board_detail,
+            "kanban_add_card": kanban_add_card,
+            "kanban_move_card": kanban_move_card,
+            "kanban_update_card": kanban_update_card,
+            "kanban_delete_card": kanban_delete_card,
+        }
+        handler = TOOL_MAP.get(name)
+        if not handler:
+            return {"error": f"Unknown tool: {name}"}
+        try:
+            result = await handler(**args)
+            # Notify frontend of changes
+            if name in ("kanban_add_card", "kanban_move_card", "kanban_update_card", "kanban_delete_card"):
+                await self.send(text_data=json.dumps({"type": "kanban_update"}))
+            return result
+        except Exception as e:
+            return {"error": str(e)}
 
 
     async def disconnect(self, close_code):
