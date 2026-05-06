@@ -5,7 +5,11 @@ from unittest.mock import patch
 from django.test import TestCase
 
 from multi_agent.agents.sr_dev.tools import (
+    sr_dev_compare_repository_refs,
+    sr_dev_find_dependency_manifests,
+    sr_dev_get_commit_status,
     sr_dev_get_context,
+    sr_dev_list_repository_tree,
     sr_dev_prepare_pm_handoff,
     sr_dev_read_repository_file,
     sr_dev_search_repository_code,
@@ -17,6 +21,10 @@ from users.models import User
 
 sr_dev_read_repository_file_module = importlib.import_module('multi_agent.agents.sr_dev.tools.sr_dev_read_repository_file')
 sr_dev_search_repository_code_module = importlib.import_module('multi_agent.agents.sr_dev.tools.sr_dev_search_repository_code')
+sr_dev_list_repository_tree_module = importlib.import_module('multi_agent.agents.sr_dev.tools.sr_dev_list_repository_tree')
+sr_dev_compare_repository_refs_module = importlib.import_module('multi_agent.agents.sr_dev.tools.sr_dev_compare_repository_refs')
+sr_dev_get_commit_status_module = importlib.import_module('multi_agent.agents.sr_dev.tools.sr_dev_get_commit_status')
+sr_dev_find_dependency_manifests_module = importlib.import_module('multi_agent.agents.sr_dev.tools.sr_dev_find_dependency_manifests')
 
 
 class SrDevToolTests(TestCase):
@@ -116,7 +124,8 @@ class SrDevToolTests(TestCase):
 
         self.assertTrue(payload['ok'])
         self.assertEqual(payload['commit_sha'], 'abc123')
-        self.assertEqual(payload['content'], 'SECRET_KEY = "test"\n')
+        self.assertEqual(payload['content'], 'SECRET_KEY=[REDACTED]\n')
+        self.assertTrue(payload['sensitive_content_redacted'])
         token_get_valid.assert_called_once_with(self.creator)
         fetch_content.assert_called_once_with(
             access_token='creator-token',
@@ -136,6 +145,19 @@ class SrDevToolTests(TestCase):
 
         self.assertFalse(payload['ok'])
         self.assertEqual(payload['code'], 'not_project_member')
+        fetch_content.assert_not_called()
+
+    @patch.object(sr_dev_read_repository_file_module, 'fetch_github_repository_content')
+    def test_sr_dev_read_repository_file_blocks_sensitive_paths_before_github_call(self, fetch_content):
+        payload = sr_dev_read_repository_file(
+            project_id=self.project.id,
+            current_user_id=self.member.id,
+            commit_sha='abc123',
+            path='.env',
+        )
+
+        self.assertFalse(payload['ok'])
+        self.assertEqual(payload['code'], 'sensitive_file_blocked')
         fetch_content.assert_not_called()
 
     @patch.object(sr_dev_search_repository_code_module, 'fetch_github_repository_content')
@@ -176,6 +198,36 @@ class SrDevToolTests(TestCase):
             path='server/auth.py',
             ref='abc123',
         )
+
+    @patch.object(sr_dev_search_repository_code_module, 'fetch_github_repository_content')
+    @patch.object(sr_dev_search_repository_code_module, 'search_github_repository_code')
+    @patch.object(sr_dev_search_repository_code_module, 'project_repository_branch_list')
+    @patch.object(sr_dev_search_repository_code_module, 'github_access_token_get_valid')
+    def test_sr_dev_search_repository_code_redacts_secret_like_snippets(self, token_get_valid, branch_list, search_code, fetch_content):
+        token_get_valid.return_value = 'creator-token'
+        branch_list.return_value = {
+            'default_branch': 'main',
+            'branches': [{'name': 'main', 'commit_sha': 'abc123', 'is_default': True}],
+        }
+        search_code.return_value = {'items': [{'path': 'server/config/settings.py'}]}
+        fetch_content.return_value = {
+            'type': 'file',
+            'encoding': 'base64',
+            'path': 'server/config/settings.py',
+            'size': 120,
+            'content': self.encoded_file('SECRET_KEY = "abc"\n'),
+        }
+
+        payload = sr_dev_search_repository_code(
+            project_id=self.project.id,
+            current_user_id=self.member.id,
+            commit_sha='abc123',
+            query='SECRET_KEY',
+        )
+
+        self.assertTrue(payload['ok'])
+        self.assertTrue(payload['sensitive_content_redacted'])
+        self.assertEqual(payload['results'][0]['snippet'], 'SECRET_KEY=[REDACTED]')
 
     @patch.object(sr_dev_search_repository_code_module, 'fetch_github_repository_content')
     @patch.object(sr_dev_search_repository_code_module, 'fetch_github_repository_tree')
@@ -252,6 +304,95 @@ class SrDevToolTests(TestCase):
         self.assertTrue(payload['truncated'])
         self.assertEqual(payload['truncation_code'], 'search_truncated')
         self.assertEqual(payload['scanned_files'], 40)
+
+    @patch.object(sr_dev_list_repository_tree_module, 'fetch_github_repository_tree')
+    @patch.object(sr_dev_list_repository_tree_module, 'sr_dev_repository_context_resolve')
+    def test_sr_dev_list_repository_tree_filters_sensitive_paths(self, context_resolve, fetch_tree):
+        context_resolve.return_value = (self.project, 'creator-token', None)
+        fetch_tree.return_value = {
+            'tree': [
+                {'path': '.env', 'type': 'blob', 'size': 20},
+                {'path': 'server/config/settings.py', 'type': 'blob', 'size': 120},
+            ]
+        }
+
+        payload = sr_dev_list_repository_tree(
+            project_id=self.project.id,
+            current_user_id=self.member.id,
+            commit_sha='abc123',
+        )
+
+        self.assertTrue(payload['ok'])
+        self.assertEqual(payload['result_count'], 1)
+        self.assertEqual(payload['entries'][0]['path'], 'server/config/settings.py')
+        self.assertEqual(payload['skipped_sensitive_files'], 1)
+
+    @patch.object(sr_dev_compare_repository_refs_module, 'fetch_github_repository_compare')
+    @patch.object(sr_dev_compare_repository_refs_module, 'sr_dev_repository_context_resolve')
+    def test_sr_dev_compare_repository_refs_returns_compact_metadata(self, context_resolve, fetch_compare):
+        context_resolve.return_value = (self.project, 'creator-token', None)
+        fetch_compare.return_value = {
+            'status': 'ahead',
+            'ahead_by': 2,
+            'behind_by': 0,
+            'total_commits': 1,
+            'commits': [{'sha': 'abc123', 'commit': {'message': 'Add auth\n\nbody', 'author': {'date': '2026-05-06T00:00:00Z'}}}],
+            'files': [{'filename': 'server/auth.py', 'status': 'modified', 'additions': 5, 'deletions': 1, 'changes': 6}],
+        }
+
+        payload = sr_dev_compare_repository_refs(
+            project_id=self.project.id,
+            current_user_id=self.member.id,
+            base_ref='main',
+            head_ref='feature/auth',
+        )
+
+        self.assertTrue(payload['ok'])
+        self.assertEqual(payload['files'][0]['filename'], 'server/auth.py')
+        self.assertEqual(payload['commits'][0]['message'], 'Add auth')
+
+    @patch.object(sr_dev_get_commit_status_module, 'fetch_github_repository_commit_status')
+    @patch.object(sr_dev_get_commit_status_module, 'sr_dev_repository_context_resolve')
+    def test_sr_dev_get_commit_status_returns_combined_status(self, context_resolve, fetch_status):
+        context_resolve.return_value = (self.project, 'creator-token', None)
+        fetch_status.return_value = {
+            'sha': 'abc123',
+            'state': 'success',
+            'total_count': 1,
+            'statuses': [{'context': 'ci', 'state': 'success', 'description': 'Passed', 'target_url': 'https://ci.example.com'}],
+        }
+
+        payload = sr_dev_get_commit_status(
+            project_id=self.project.id,
+            current_user_id=self.member.id,
+            reference='abc123',
+        )
+
+        self.assertTrue(payload['ok'])
+        self.assertEqual(payload['state'], 'success')
+        self.assertEqual(payload['statuses'][0]['context'], 'ci')
+
+    @patch.object(sr_dev_find_dependency_manifests_module, 'fetch_github_repository_tree')
+    @patch.object(sr_dev_find_dependency_manifests_module, 'sr_dev_repository_context_resolve')
+    def test_sr_dev_find_dependency_manifests_returns_known_manifests(self, context_resolve, fetch_tree):
+        context_resolve.return_value = (self.project, 'creator-token', None)
+        fetch_tree.return_value = {
+            'tree': [
+                {'path': 'package.json', 'type': 'blob', 'size': 120},
+                {'path': 'server/requirements.txt', 'type': 'blob', 'size': 80},
+                {'path': 'server/app.py', 'type': 'blob', 'size': 50},
+            ]
+        }
+
+        payload = sr_dev_find_dependency_manifests(
+            project_id=self.project.id,
+            current_user_id=self.member.id,
+            commit_sha='abc123',
+        )
+
+        self.assertTrue(payload['ok'])
+        self.assertEqual(payload['manifest_count'], 2)
+        self.assertEqual({item['filename'] for item in payload['manifests']}, {'package.json', 'requirements.txt'})
 
     def test_sr_dev_prepare_pm_handoff_returns_json_without_writing_records(self):
         payload = sr_dev_prepare_pm_handoff(

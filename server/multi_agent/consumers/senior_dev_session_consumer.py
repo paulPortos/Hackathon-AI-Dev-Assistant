@@ -1,9 +1,5 @@
-import base64
-import binascii
-
 from channels.generic.websocket import JsonWebsocketConsumer
 from django.core.exceptions import ObjectDoesNotExist
-from django.core.files.uploadedfile import SimpleUploadedFile
 
 from multi_agent.agents.sr_dev.workflows import senior_dev_message_process
 from multi_agent.models import SeniorDevFinding, SeniorDevMessage
@@ -50,7 +46,6 @@ class SeniorDevSessionConsumer(JsonWebsocketConsumer):
         allowed_types = {
             SeniorDevMessage.InputType.OPEN_TEXT,
             SeniorDevMessage.InputType.CHOICE,
-            SeniorDevMessage.InputType.AUDIO,
         }
         if input_type not in allowed_types:
             self._send_error('Unsupported input_type')
@@ -61,15 +56,6 @@ class SeniorDevSessionConsumer(JsonWebsocketConsumer):
         choice_payload = content.get('choice_payload')
         if choice_payload is not None and not isinstance(choice_payload, dict):
             choice_payload = {}
-        audio_payload = content.get('audio')
-        audio_file = None
-
-        if input_type == SeniorDevMessage.InputType.AUDIO:
-            try:
-                audio_file = self._build_audio_file(audio_payload)
-            except ValueError as exc:
-                self._send_error(str(exc))
-                return
 
         try:
             payload = senior_dev_message_process(
@@ -79,7 +65,6 @@ class SeniorDevSessionConsumer(JsonWebsocketConsumer):
                 text=text,
                 choice=choice,
                 choice_payload=choice_payload,
-                audio_file=audio_file,
             )
         except ValueError as exc:
             self._send_error(str(exc))
@@ -117,29 +102,6 @@ class SeniorDevSessionConsumer(JsonWebsocketConsumer):
             return
         serialized = SeniorDevFindingSerializer(findings, many=True).data
         self.send_json({'event': 'findings', 'findings': serialized})
-
-    def _build_audio_file(self, audio_payload):
-        if not isinstance(audio_payload, dict):
-            raise ValueError('audio payload is required')
-
-        base64_data = str(audio_payload.get('base64') or '').strip()
-        if base64_data.startswith('data:'):
-            base64_data = base64_data.split(',', 1)[1] if ',' in base64_data else ''
-
-        if not base64_data:
-            raise ValueError('audio payload is missing data')
-
-        try:
-            audio_bytes = base64.b64decode(base64_data)
-        except (binascii.Error, ValueError) as exc:
-            raise ValueError('audio payload is invalid') from exc
-
-        if not audio_bytes:
-            raise ValueError('audio payload is empty')
-
-        file_name = str(audio_payload.get('file_name') or 'audio')
-        content_type = str(audio_payload.get('content_type') or 'application/octet-stream')
-        return SimpleUploadedFile(file_name, audio_bytes, content_type=content_type)
 
     def _send_error(self, message):
         self.send_json({'event': 'error', 'message': str(message)})

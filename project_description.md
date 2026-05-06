@@ -21,7 +21,7 @@ Email Provider : Twillio
 Frontend Infra : Vercel
 Backend Infra : Render
 Agentic Framework : Agno
-LLM/Agent Provider : Gemini AI API (Flash)
+LLM/Agent Provider : Ollama
 
 Agent Plan: 
 

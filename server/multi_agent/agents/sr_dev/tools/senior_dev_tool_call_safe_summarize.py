@@ -33,6 +33,7 @@ def senior_dev_tool_call_safe_summarize(*, tool_name, payload):
             'size': payload.get('size'),
             'line_count': payload.get('line_count'),
             'commit_sha': payload.get('commit_sha'),
+            'sensitive_content_redacted': payload.get('sensitive_content_redacted', False),
         }
     if tool_name == 'search_code':
         return {
@@ -42,15 +43,57 @@ def senior_dev_tool_call_safe_summarize(*, tool_name, payload):
             'result_count': payload.get('result_count'),
             'scanned_files': payload.get('scanned_files'),
             'truncated': payload.get('truncated'),
+            'sensitive_content_redacted': payload.get('sensitive_content_redacted', False),
             'results': [
                 {
                     'path': item.get('path'),
                     'line_number': item.get('line_number'),
                     'snippet': compact_string(item.get('snippet'), max_length=260),
+                    'sensitive_content_redacted': item.get('sensitive_content_redacted', False),
                 }
                 for item in payload.get('results', [])[:5]
                 if isinstance(item, dict)
             ],
+        }
+    if tool_name == 'list_repository_tree':
+        return {
+            'ok': payload.get('ok'),
+            'code': payload.get('code', ''),
+            'path_prefix': payload.get('path_prefix', ''),
+            'result_count': payload.get('result_count'),
+            'skipped_sensitive_files': payload.get('skipped_sensitive_files'),
+            'truncated': payload.get('truncated'),
+            'entries': payload.get('entries', [])[:10],
+        }
+    if tool_name == 'compare_repository_refs':
+        return {
+            'ok': payload.get('ok'),
+            'code': payload.get('code', ''),
+            'base_ref': payload.get('base_ref'),
+            'head_ref': payload.get('head_ref'),
+            'status': payload.get('status'),
+            'ahead_by': payload.get('ahead_by'),
+            'behind_by': payload.get('behind_by'),
+            'file_count': payload.get('file_count'),
+            'files': payload.get('files', [])[:10],
+        }
+    if tool_name == 'get_commit_status':
+        return {
+            'ok': payload.get('ok'),
+            'code': payload.get('code', ''),
+            'reference': payload.get('reference'),
+            'sha': payload.get('sha'),
+            'state': payload.get('state'),
+            'total_count': payload.get('total_count'),
+            'statuses': payload.get('statuses', [])[:10],
+        }
+    if tool_name == 'find_dependency_manifests':
+        return {
+            'ok': payload.get('ok'),
+            'code': payload.get('code', ''),
+            'path_prefix': payload.get('path_prefix', ''),
+            'manifest_count': payload.get('manifest_count'),
+            'manifests': payload.get('manifests', [])[:20],
         }
     if tool_name == 'get_context':
         project_context = payload.get('project_context') or {}

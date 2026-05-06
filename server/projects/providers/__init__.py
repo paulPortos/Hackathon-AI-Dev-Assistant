@@ -1,6 +1,8 @@
 from projects.providers.email_delivery_error import EmailDeliveryError
 from projects.providers.fetch_github_repository import fetch_github_repository
 from projects.providers.fetch_github_repository_branches import fetch_github_repository_branches
+from projects.providers.fetch_github_repository_commit_status import fetch_github_repository_commit_status
+from projects.providers.fetch_github_repository_compare import fetch_github_repository_compare
 from projects.providers.fetch_github_repository_content import fetch_github_repository_content
 from projects.providers.fetch_github_repository_languages import fetch_github_repository_languages
 from projects.providers.fetch_github_repository_list import fetch_github_repository_list
@@ -14,6 +16,8 @@ __all__ = [
     'GitHubRepositoryError',
     'fetch_github_repository',
     'fetch_github_repository_branches',
+    'fetch_github_repository_commit_status',
+    'fetch_github_repository_compare',
     'fetch_github_repository_content',
     'fetch_github_repository_languages',
     'fetch_github_repository_list',

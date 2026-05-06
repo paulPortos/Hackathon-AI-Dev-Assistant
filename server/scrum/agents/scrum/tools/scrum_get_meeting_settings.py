@@ -1,6 +1,7 @@
 from django.core.exceptions import ObjectDoesNotExist
 
-from projects.selectors import project_get_for_member, project_meeting_settings_get_for_project
+from projects.selectors import project_get_for_member
+from scrum.selectors import project_meeting_settings_get_for_project
 from users.selectors import user_get_by_id
 
 

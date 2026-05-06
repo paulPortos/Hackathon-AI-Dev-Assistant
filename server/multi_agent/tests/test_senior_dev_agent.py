@@ -1,9 +1,9 @@
 import importlib
 import inspect
+from types import SimpleNamespace
 from unittest.mock import patch
 
-from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -15,7 +15,9 @@ from users.models import User
 
 
 senior_dev_message_process_module = importlib.import_module('multi_agent.agents.sr_dev.workflows.senior_dev_message_process')
+senior_dev_agent_run_module = importlib.import_module('multi_agent.agents.sr_dev.agno.senior_dev_agent_run')
 senior_dev_scoped_tools_create_module = importlib.import_module('multi_agent.agents.sr_dev.tools.senior_dev_scoped_tools_create')
+senior_dev_memory_module = importlib.import_module('multi_agent.agents.sr_dev.prompts.senior_dev_session_memory_context_build')
 
 
 class SeniorDevAgentTests(TestCase):
@@ -68,6 +70,31 @@ class SeniorDevAgentTests(TestCase):
             branch_name='main',
         )
 
+    def create_tool_proof_for_message(self, session, message, path='auth/views.py', line_number=42, snippet='Login view has no rate limit'):
+        SeniorDevToolCall.objects.create(
+            session=session,
+            message=message,
+            tool_name='get_context',
+            safe_input_summary={},
+            safe_result_summary={'ok': True, 'project_id': self.project.id},
+            status=SeniorDevToolCall.Status.SUCCESS,
+            duration_ms=5,
+            commit_sha=session.commit_sha,
+        )
+        SeniorDevToolCall.objects.create(
+            session=session,
+            message=message,
+            tool_name='search_code',
+            safe_input_summary={'query': 'rate limit'},
+            safe_result_summary={
+                'ok': True,
+                'results': [{'path': path, 'line_number': line_number, 'snippet': snippet}],
+            },
+            status=SeniorDevToolCall.Status.SUCCESS,
+            duration_ms=5,
+            commit_sha=session.commit_sha,
+        )
+
     def test_session_create_requires_membership_and_commit_sha(self):
         success_response = self.client.post(
             reverse('api:agents:senior-dev-session-list', kwargs={'version': 'v1'}),
@@ -92,6 +119,64 @@ class SeniorDevAgentTests(TestCase):
         self.assertEqual(success_response.json()['commit_sha'], 'abc123')
         self.assertEqual(missing_commit_response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(outsider_response.status_code, status.HTTP_404_NOT_FOUND)
+
+    @override_settings(SR_DEV_AGENT_MODEL='gpt-oss:20b', OLLAMA_HOST='https://ollama.example', OLLAMA_API_KEY='test-token')
+    @patch.object(senior_dev_agent_run_module, 'senior_dev_session_memory_context_build', return_value='No prior turns.')
+    @patch.object(senior_dev_agent_run_module, 'Agent')
+    @patch.object(senior_dev_agent_run_module, 'Ollama')
+    def test_senior_dev_agent_uses_configured_ollama_model(self, ollama, agent_class, memory_build):
+        session = self.create_session()
+        user_message = SeniorDevMessage.objects.create(
+            session=session,
+            role=SeniorDevMessage.Role.USER,
+            text_content='Check auth',
+        )
+        agent_class.return_value.run.return_value = SimpleNamespace(content='Done')
+
+        result = senior_dev_agent_run_module.senior_dev_agent_run(
+            session=session,
+            user_message=user_message,
+            tools=[],
+        )
+
+        self.assertEqual(result, 'Done')
+        ollama.assert_called_once_with(
+            id='gpt-oss:20b',
+            host='https://ollama.example',
+            api_key='test-token',
+        )
+        memory_build.assert_called_once_with(session=session, before_message=user_message)
+
+    @override_settings(
+        SR_DEV_AGENT_MODEL='gpt-oss:20b',
+        OLLAMA_HOST='https://ollama.example',
+        OLLAMA_API_KEY='test-token',
+        OLLAMA_AGENT_MAX_ATTEMPTS=2,
+        OLLAMA_AGENT_RETRY_DELAY_SECONDS=0,
+    )
+    @patch.object(senior_dev_agent_run_module, 'senior_dev_session_memory_context_build', return_value='No prior turns.')
+    @patch.object(senior_dev_agent_run_module, 'Agent')
+    @patch.object(senior_dev_agent_run_module, 'Ollama')
+    def test_senior_dev_agent_retries_transient_ollama_provider_failure(self, ollama, agent_class, memory_build):
+        session = self.create_session()
+        user_message = SeniorDevMessage.objects.create(
+            session=session,
+            role=SeniorDevMessage.Role.USER,
+            text_content='Check pagination',
+        )
+        agent_class.return_value.run.side_effect = [
+            RuntimeError('Internal Server Error (status code: 500)'),
+            SimpleNamespace(content='Retry succeeded'),
+        ]
+
+        result = senior_dev_agent_run_module.senior_dev_agent_run(
+            session=session,
+            user_message=user_message,
+            tools=[],
+        )
+
+        self.assertEqual(result, 'Retry succeeded')
+        self.assertEqual(agent_class.return_value.run.call_count, 2)
 
     def test_sessions_and_messages_are_member_scoped_and_paginated(self):
         session = self.create_session()
@@ -121,11 +206,16 @@ class SeniorDevAgentTests(TestCase):
         self.assertEqual(messages_response.json()['count'], 1)
         self.assertEqual(outsider_response.status_code, status.HTTP_404_NOT_FOUND)
 
+    @patch.object(senior_dev_message_process_module, 'project_manager_agent_process_handoff')
     @patch.object(senior_dev_message_process_module, 'senior_dev_parser_run')
     @patch.object(senior_dev_message_process_module, 'senior_dev_agent_run')
-    def test_text_message_flow_stores_claims_findings_and_handoff_without_pm_writes(self, agent_run, parser_run):
+    def test_text_message_flow_stores_claims_findings_and_runs_pm_handoff(self, agent_run, parser_run, pm_handoff):
         session = self.create_session()
-        agent_run.return_value = 'I checked the login endpoint and rate limiting appears missing.'
+        agent_run.side_effect = lambda *, session, user_message, tools: (
+            self.create_tool_proof_for_message(session, user_message)
+            or 'I checked the login endpoint and rate limiting appears missing.'
+        )
+        pm_handoff.return_value = {'ok': True, 'status': 'completed', 'created_tasks': [], 'created_vulnerabilities': []}
         parser_run.return_value = {
             'assistant_message': 'I checked the login endpoint and rate limiting appears missing.',
             'check_in_question': 'Do you want me to review authentication middleware next?',
@@ -160,11 +250,14 @@ class SeniorDevAgentTests(TestCase):
         self.assertEqual(payload['claims'][0]['text'], 'Login endpoint exists')
         self.assertEqual(payload['findings'][0]['confidence_score'], 85)
         self.assertTrue(payload['handoff']['handoff_id'])
+        self.assertTrue(payload['pm_handoff_result']['ok'])
         self.assertNotIn('recommended_tasks', payload['handoff'])
         self.assertEqual(SeniorDevClaim.objects.count(), 1)
         self.assertEqual(SeniorDevFinding.objects.count(), 1)
+        self.assertEqual(SeniorDevFinding.objects.get().status, SeniorDevFinding.Status.HANDED_OFF)
         self.assertEqual(ProjectTask.objects.count(), 0)
         self.assertEqual(ProjectVulnerability.objects.count(), 0)
+        pm_handoff.assert_called_once_with(self.project.id, self.member.id, payload['assistant_message_id'])
 
     @patch.object(senior_dev_message_process_module, 'senior_dev_parser_run')
     @patch.object(senior_dev_message_process_module, 'senior_dev_agent_run')
@@ -199,34 +292,21 @@ class SeniorDevAgentTests(TestCase):
 
     @patch.object(senior_dev_message_process_module, 'senior_dev_parser_run')
     @patch.object(senior_dev_message_process_module, 'senior_dev_agent_run')
-    @patch.object(senior_dev_message_process_module, 'gemini_audio_transcribe')
-    def test_audio_message_transcribes_before_agent_and_does_not_store_raw_audio(self, transcribe, agent_run, parser_run):
+    def test_audio_message_is_rejected_by_ollama_only_stack(self, agent_run, parser_run):
         session = self.create_session()
-        transcribe.return_value = 'Please check login throttling.'
-        agent_run.return_value = 'I will inspect login throttling.'
-        parser_run.return_value = {
-            'assistant_message': 'I will inspect login throttling.',
-            'check_in_question': '',
-            'choices': [],
-            'allow_free_text': True,
-            'claims': [],
-            'findings': [],
-        }
-        audio = SimpleUploadedFile('question.webm', b'raw-audio-bytes', content_type='audio/webm')
 
         response = self.client.post(
             reverse('api:agents:senior-dev-message-list', kwargs={'version': 'v1', 'session_id': session.id}),
-            {'input_type': 'audio', 'audio': audio},
+            {'input_type': 'audio'},
+            content_type='application/json',
             **self.auth_header(self.member),
         )
-        user_message = SeniorDevMessage.objects.get(role=SeniorDevMessage.Role.USER)
 
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(user_message.text_content, 'Please check login throttling.')
-        self.assertEqual(user_message.structured_payload['audio_metadata']['file_name'], 'question.webm')
-        self.assertNotIn('raw-audio-bytes', str(user_message.structured_payload))
-        transcribe.assert_called_once()
-        agent_run.assert_called_once()
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('input_type', response.json())
+        self.assertEqual(SeniorDevMessage.objects.count(), 0)
+        agent_run.assert_not_called()
+        parser_run.assert_not_called()
 
     def test_scoped_tool_wrappers_hide_scope_and_store_safe_tool_call_summary(self):
         session = self.create_session()
@@ -286,3 +366,146 @@ class SeniorDevAgentTests(TestCase):
         self.assertEqual(response.json()['assistant_message'], 'Raw assistant reply')
         self.assertEqual(assistant_message.text_content, 'Raw assistant reply')
         self.assertIn('bad parser output', assistant_message.structured_payload['parser_error'])
+
+    @patch.object(senior_dev_message_process_module, 'senior_dev_parser_run')
+    @patch.object(senior_dev_message_process_module, 'senior_dev_agent_run')
+    def test_agent_failure_returns_safe_message_without_claims_or_findings(self, agent_run, parser_run):
+        session = self.create_session()
+        agent_run.side_effect = RuntimeError('model unavailable')
+
+        response = self.client.post(
+            reverse('api:agents:senior-dev-message-list', kwargs={'version': 'v1', 'session_id': session.id}),
+            {'input_type': 'text', 'text': 'Check rate limiting.'},
+            content_type='application/json',
+            **self.auth_header(self.member),
+        )
+        assistant_message = SeniorDevMessage.objects.get(role=SeniorDevMessage.Role.ASSISTANT)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()['agent_error']['code'], 'agent_error')
+        self.assertEqual(assistant_message.structured_payload['agent_error']['code'], 'agent_error')
+        self.assertEqual(SeniorDevClaim.objects.count(), 0)
+        self.assertEqual(SeniorDevFinding.objects.count(), 0)
+        parser_run.assert_not_called()
+
+    @patch.object(senior_dev_message_process_module, 'senior_dev_parser_run')
+    @patch.object(senior_dev_message_process_module, 'senior_dev_agent_run')
+    def test_findings_without_tool_proof_are_rejected_not_persisted(self, agent_run, parser_run):
+        session = self.create_session()
+        agent_run.return_value = 'I think rate limiting is missing.'
+        parser_run.return_value = {
+            'assistant_message': 'I think rate limiting is missing.',
+            'check_in_question': '',
+            'choices': [],
+            'allow_free_text': True,
+            'claims': [{'text': 'Login is verified', 'status': 'verified'}],
+            'findings': [{'title': 'Missing rate limiting', 'severity': 'high', 'evidence': [{'type': 'code', 'path': 'auth/views.py'}]}],
+        }
+
+        response = self.client.post(
+            reverse('api:agents:senior-dev-message-list', kwargs={'version': 'v1', 'session_id': session.id}),
+            {'input_type': 'text', 'text': 'We handle login safely.'},
+            content_type='application/json',
+            **self.auth_header(self.member),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.json()['findings'], [])
+        self.assertEqual(response.json()['rejected_findings'][0]['reason'], 'missing_get_context_tool_call')
+        self.assertEqual(SeniorDevFinding.objects.count(), 0)
+        self.assertEqual(SeniorDevClaim.objects.get().status, SeniorDevClaim.Status.UNVERIFIED)
+
+    @patch.object(senior_dev_message_process_module, 'project_manager_agent_process_handoff')
+    @patch.object(senior_dev_message_process_module, 'senior_dev_parser_run')
+    @patch.object(senior_dev_message_process_module, 'senior_dev_agent_run')
+    def test_pm_handoff_failure_keeps_sr_dev_message_successful_and_finding_open(self, agent_run, parser_run, pm_handoff):
+        session = self.create_session()
+        agent_run.side_effect = lambda *, session, user_message, tools: (
+            self.create_tool_proof_for_message(session, user_message)
+            or 'I checked the login endpoint and rate limiting appears missing.'
+        )
+        pm_handoff.return_value = {'ok': False, 'code': 'agent_error', 'detail': 'PM unavailable'}
+        parser_run.return_value = {
+            'assistant_message': 'I checked the login endpoint and rate limiting appears missing.',
+            'check_in_question': '',
+            'choices': [],
+            'allow_free_text': True,
+            'conversation_summary': 'Rate limit review.',
+            'claims': [],
+            'findings': [
+                {
+                    'type': 'vulnerability',
+                    'title': 'Missing rate limiting on login endpoint',
+                    'severity': 'high',
+                    'confidence_score': 85,
+                    'confidence_reason': 'Tool evidence found no throttling.',
+                    'evidence': [{'type': 'code', 'path': 'auth/views.py', 'start_line': 42, 'snippet': 'Login view has no rate limit'}],
+                }
+            ],
+        }
+
+        response = self.client.post(
+            reverse('api:agents:senior-dev-message-list', kwargs={'version': 'v1', 'session_id': session.id}),
+            {'input_type': 'text', 'text': 'We already handle login safely.'},
+            content_type='application/json',
+            **self.auth_header(self.member),
+        )
+        assistant_message = SeniorDevMessage.objects.get(role=SeniorDevMessage.Role.ASSISTANT)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.json()['pm_handoff_result']['ok'])
+        self.assertEqual(SeniorDevFinding.objects.get().status, SeniorDevFinding.Status.OPEN)
+        self.assertFalse(assistant_message.structured_payload['pm_handoff_result']['ok'])
+
+    def test_session_memory_context_is_limited_to_current_session(self):
+        session = self.create_session()
+        other_session = self.create_session()
+        SeniorDevMessage.objects.create(session=session, role=SeniorDevMessage.Role.USER, text_content='Please review login throttling.')
+        SeniorDevMessage.objects.create(session=session, role=SeniorDevMessage.Role.ASSISTANT, text_content='I found the auth view.')
+        SeniorDevMessage.objects.create(session=other_session, role=SeniorDevMessage.Role.USER, text_content='Unrelated billing topic.')
+        current_message = SeniorDevMessage.objects.create(session=session, role=SeniorDevMessage.Role.USER, text_content='What did we discuss?')
+
+        context = senior_dev_memory_module.senior_dev_session_memory_context_build(session=session, before_message=current_message)
+
+        self.assertIn('Please review login throttling.', context)
+        self.assertIn('I found the auth view.', context)
+        self.assertNotIn('Unrelated billing topic.', context)
+        self.assertNotIn('What did we discuss?', context)
+
+    def test_finding_status_patch_is_member_scoped_and_validates_status(self):
+        session = self.create_session()
+        message = SeniorDevMessage.objects.create(session=session, role=SeniorDevMessage.Role.ASSISTANT, text_content='Finding')
+        finding = SeniorDevFinding.objects.create(session=session, message=message, title='Missing throttling')
+
+        success_response = self.client.patch(
+            reverse(
+                'api:agents:senior-dev-finding-detail',
+                kwargs={'version': 'v1', 'session_id': session.id, 'finding_id': finding.id},
+            ),
+            {'status': SeniorDevFinding.Status.DISMISSED},
+            content_type='application/json',
+            **self.auth_header(self.member),
+        )
+        invalid_response = self.client.patch(
+            reverse(
+                'api:agents:senior-dev-finding-detail',
+                kwargs={'version': 'v1', 'session_id': session.id, 'finding_id': finding.id},
+            ),
+            {'status': 'resolved'},
+            content_type='application/json',
+            **self.auth_header(self.member),
+        )
+        outsider_response = self.client.patch(
+            reverse(
+                'api:agents:senior-dev-finding-detail',
+                kwargs={'version': 'v1', 'session_id': session.id, 'finding_id': finding.id},
+            ),
+            {'status': SeniorDevFinding.Status.OPEN},
+            content_type='application/json',
+            **self.auth_header(self.outsider),
+        )
+
+        self.assertEqual(success_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(success_response.json()['status'], SeniorDevFinding.Status.DISMISSED)
+        self.assertEqual(invalid_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(outsider_response.status_code, status.HTTP_404_NOT_FOUND)

@@ -51,6 +51,8 @@ export const apiPaths = {
   srDevSessions: '/agents/sr-dev/sessions/',
   srDevSession: (sessionId) => `/agents/sr-dev/sessions/${sessionId}/`,
   srDevMessages: (sessionId) => `/agents/sr-dev/sessions/${sessionId}/messages/`,
+  srDevFindings: (sessionId) => `/agents/sr-dev/sessions/${sessionId}/findings/`,
+  srDevFinding: (sessionId, findingId) => `/agents/sr-dev/sessions/${sessionId}/findings/${findingId}/`,
   authRefresh: '/auth/tokens/refresh/',
   authVerify: '/auth/tokens/verify/',
 };

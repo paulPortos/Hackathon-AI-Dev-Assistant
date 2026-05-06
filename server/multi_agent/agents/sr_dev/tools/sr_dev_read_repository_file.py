@@ -4,6 +4,8 @@ import binascii
 from django.core.exceptions import ObjectDoesNotExist
 
 from multi_agent.agents.sr_dev.tools.constants import MAX_READ_FILE_BYTES
+from multi_agent.agents.sr_dev.tools.sr_dev_sensitive_path_is_blocked import sr_dev_sensitive_path_is_blocked
+from multi_agent.agents.sr_dev.tools.sr_dev_sensitive_text_redact import sr_dev_sensitive_text_redact
 from projects.providers import GitHubRepositoryError, fetch_github_repository_content
 from projects.selectors import project_get_for_member
 from users.selectors import user_get_by_id
@@ -15,6 +17,8 @@ def sr_dev_read_repository_file(project_id, current_user_id, commit_sha, path):
         return {'ok': False, 'code': 'validation_error', 'detail': 'commit_sha is required'}
     if not path or path.startswith('/') or '..' in path.split('/'):
         return {'ok': False, 'code': 'validation_error', 'detail': 'path must be a relative repository file path'}
+    if sr_dev_sensitive_path_is_blocked(path):
+        return {'ok': False, 'code': 'sensitive_file_blocked', 'detail': 'Sensitive repository files cannot be read by the agent'}
 
     try:
         current_user = user_get_by_id(current_user_id)
@@ -56,6 +60,7 @@ def sr_dev_read_repository_file(project_id, current_user_id, commit_sha, path):
         content = base64.b64decode(github_file['content']).decode('utf-8')
     except (binascii.Error, UnicodeDecodeError):
         return {'ok': False, 'code': 'unsupported_file', 'detail': 'File content is not UTF-8 text'}
+    content, sensitive_content_redacted = sr_dev_sensitive_text_redact(content)
 
     return {
         'ok': True,
@@ -65,5 +70,6 @@ def sr_dev_read_repository_file(project_id, current_user_id, commit_sha, path):
         'path': github_file.get('path') or path,
         'size': github_file.get('size', len(content.encode())),
         'line_count': len(content.splitlines()),
+        'sensitive_content_redacted': sensitive_content_redacted,
         'content': content,
     }

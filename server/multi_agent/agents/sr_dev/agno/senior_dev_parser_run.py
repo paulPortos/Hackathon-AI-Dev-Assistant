@@ -4,6 +4,7 @@ import json
 
 from django.conf import settings
 
+from multi_agent.agents.ollama_agent_run_with_retry import ollama_agent_run_with_retry
 from multi_agent.agents.sr_dev.prompts.senior_dev_parser_instructions import senior_dev_parser_instructions
 from multi_agent.agents.sr_dev.schemas import SeniorDevParserOutput
 
@@ -86,5 +87,5 @@ def senior_dev_parser_run(*, session, user_message, assistant_text, tool_call_su
         sort_keys=True,
         default=str,
     )
-    response = agent.run(prompt)
+    response = ollama_agent_run_with_retry(agent, prompt, agent_name='Senior Dev Structured Parser')
     return normalize_output(getattr(response, 'content', response))

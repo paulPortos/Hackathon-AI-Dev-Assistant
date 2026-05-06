@@ -14,6 +14,8 @@ from multi_agent.agents.sr_dev.tools.constants import (
     SEARCH_SNIPPET_CONTEXT_LINES,
     SEARCH_SNIPPET_MAX_CHARS,
 )
+from multi_agent.agents.sr_dev.tools.sr_dev_sensitive_path_is_blocked import sr_dev_sensitive_path_is_blocked
+from multi_agent.agents.sr_dev.tools.sr_dev_sensitive_text_redact import sr_dev_sensitive_text_redact
 from projects.providers import (
     GitHubRepositoryError,
     fetch_github_repository_content,
@@ -48,6 +50,8 @@ def sr_dev_search_repository_code(project_id, current_user_id, commit_sha, query
         path = entry.get('path') or ''
         if entry.get('type') != 'blob':
             return False
+        if sr_dev_sensitive_path_is_blocked(path):
+            return False
         if entry.get('size', 0) > MAX_SEARCH_FILE_BYTES:
             return False
         if path_prefix and not path.startswith(path_prefix.strip('/')):
@@ -79,6 +83,7 @@ def sr_dev_search_repository_code(project_id, current_user_id, commit_sha, query
         return [term for term in terms if term in lower_line]
 
     def append_snippets(results, path, content, terms):
+        nonlocal sensitive_content_redacted
         lines = content.splitlines()
         for index, line in enumerate(lines):
             matched_terms = matched_terms_for_line(line, terms)
@@ -90,6 +95,9 @@ def sr_dev_search_repository_code(project_id, current_user_id, commit_sha, query
             snippet = '\n'.join(lines[start:end])
             if len(snippet) > SEARCH_SNIPPET_MAX_CHARS:
                 snippet = f'{snippet[:SEARCH_SNIPPET_MAX_CHARS]}...'
+            snippet, snippet_redacted = sr_dev_sensitive_text_redact(snippet)
+            if snippet_redacted:
+                sensitive_content_redacted = True
 
             results.append(
                 {
@@ -97,6 +105,7 @@ def sr_dev_search_repository_code(project_id, current_user_id, commit_sha, query
                     'line_number': index + 1,
                     'snippet': snippet,
                     'matched_terms': matched_terms,
+                    'sensitive_content_redacted': snippet_redacted,
                 }
             )
             if len(results) >= MAX_SEARCH_RESULTS:
@@ -176,6 +185,7 @@ def sr_dev_search_repository_code(project_id, current_user_id, commit_sha, query
     skipped_files = 0
     truncated = False
     search_mode = 'tree_scan'
+    sensitive_content_redacted = False
 
     try:
         branch_context = project_repository_branch_list(project)
@@ -199,7 +209,10 @@ def sr_dev_search_repository_code(project_id, current_user_id, commit_sha, query
                 if path_prefix and not path.startswith(path_prefix.strip('/')):
                     skipped_files += 1
                     continue
-                if PurePosixPath(path).suffix.lower() not in extensions:
+                if sr_dev_sensitive_path_is_blocked(path):
+                    skipped_files += 1
+                    continue
+                if extensions is not None and PurePosixPath(path).suffix.lower() not in extensions:
                     skipped_files += 1
                     continue
                 scanned_files += 1
@@ -258,4 +271,5 @@ def sr_dev_search_repository_code(project_id, current_user_id, commit_sha, query
         'skipped_files': skipped_files,
         'truncated': truncated,
         'truncation_code': 'search_truncated' if truncated else '',
+        'sensitive_content_redacted': sensitive_content_redacted,
     }

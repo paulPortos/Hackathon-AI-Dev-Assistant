@@ -10,6 +10,11 @@ const defaultGreeting =
   'Good day. How are you today, and may I know your progress and what you have completed so far?';
 
 const defaultChoices = ['Progress update', 'Blocker report', 'Request a review'];
+const findingStatusOptions = [
+  { value: 'open', label: 'Open' },
+  { value: 'dismissed', label: 'Dismissed' },
+  { value: 'handed_off', label: 'Handed off' },
+];
 
 export default function SeniorPage() {
   const [searchParams] = useSearchParams();
@@ -20,10 +25,10 @@ export default function SeniorPage() {
   const [messages, setMessages] = useState([]);
   const [findings, setFindings] = useState([]);
   const [inputText, setInputText] = useState('');
-  const [audioFile, setAudioFile] = useState(null);
   const [branches, setBranches] = useState([]);
   const [selectedBranch, setSelectedBranch] = useState('main');
   const [sessionNameDraft, setSessionNameDraft] = useState('');
+  const [findingStatusPendingId, setFindingStatusPendingId] = useState('');
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
   const socketRef = useRef(null);
@@ -78,6 +83,16 @@ export default function SeniorPage() {
 
   const resolveSessionLabel = (session) =>
     session.name || session.project_name || `Session ${session.id}`;
+
+  const loadFindings = async (sessionId) => {
+    try {
+      const payload = await api.listSeniorFindings(sessionId);
+      return normalizeList(payload);
+    } catch (err) {
+      setError('Findings load failed: ' + err.message);
+      return [];
+    }
+  };
 
   const enqueuePendingMessage = (inputType, textContent) => {
     const clientId = `pending-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -157,26 +172,6 @@ export default function SeniorPage() {
     return true;
   };
 
-  const readFileAsBase64 = (file) =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = String(reader.result || '');
-        const parts = result.split(',');
-        const base64 = parts.length > 1 ? parts[1] : '';
-        if (!base64) {
-          reject(new Error('Failed to read audio data'));
-          return;
-        }
-        resolve({
-          base64,
-          contentType: file.type || 'application/octet-stream',
-        });
-      };
-      reader.onerror = () => reject(new Error('Failed to read audio file'));
-      reader.readAsDataURL(file);
-    });
-
   const mergeFindings = (incoming) => {
     if (!Array.isArray(incoming) || incoming.length === 0) return;
     setFindings((prev) => {
@@ -188,6 +183,20 @@ export default function SeniorPage() {
       });
       return Array.from(byId.values()).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     });
+  };
+
+  const handleFindingStatusChange = async (finding, nextStatus) => {
+    if (!selectedSessionId || !finding?.id || finding.status === nextStatus) return;
+    setFindingStatusPendingId(String(finding.id));
+    setError('');
+    try {
+      const payload = await api.updateSeniorFindingStatus(selectedSessionId, finding.id, nextStatus);
+      mergeFindings([payload]);
+    } catch (err) {
+      setError('Finding update failed: ' + err.message);
+    } finally {
+      setFindingStatusPendingId('');
+    }
   };
 
   const handleCreateSession = async (pId, bName = 'main', branchList) => {
@@ -262,10 +271,18 @@ export default function SeniorPage() {
       return;
     }
 
+    let isActive = true;
+
     setMessages([]);
     setFindings([]);
     setError('');
     closeSocket();
+
+    loadFindings(selectedSessionId).then((data) => {
+      if (isActive) {
+        setFindings(data);
+      }
+    });
 
     const token = authStorage.getAccessToken();
     const wsUrl = token
@@ -318,6 +335,7 @@ export default function SeniorPage() {
     };
 
     return () => {
+      isActive = false;
       if (socketRef.current === socket) {
         socket.close();
         socketRef.current = null;
@@ -349,28 +367,6 @@ export default function SeniorPage() {
     if (sent) {
       enqueuePendingMessage('open_text', textToSend);
       setInputText('');
-    }
-  };
-
-  const sendAudio = async (file) => {
-    if (!selectedSessionId || !file) return;
-    try {
-      const { base64, contentType } = await readFileAsBase64(file);
-      const sent = sendWsPayload({
-        action: 'send_message',
-        input_type: 'audio',
-        audio: {
-          base64,
-          content_type: contentType,
-          file_name: file.name,
-        },
-      });
-      if (sent) {
-        enqueuePendingMessage('audio', 'Voice message sent');
-        setAudioFile(null);
-      }
-    } catch (err) {
-      setError(err.message);
     }
   };
 
@@ -435,23 +431,6 @@ export default function SeniorPage() {
               Send
             </button>
           </div>
-
-          <div style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <input
-              type="file"
-              id="audio-upload"
-              style={{ display: 'none' }}
-              onChange={(e) => {
-                const file = e.target.files?.[0] || null;
-                setAudioFile(file);
-                if (file) sendAudio(file);
-              }}
-            />
-            <label htmlFor="audio-upload" className="button ghost" style={{ cursor: 'pointer', fontSize: '12px' }}>
-              🎤 Send Voice
-            </label>
-            {audioFile && <span className="subtle" style={{ fontSize: '12px' }}>{audioFile.name}</span>}
-          </div>
         </div>
       </section>
 
@@ -485,6 +464,22 @@ export default function SeniorPage() {
                       Confidence: {finding.confidence_score}%
                     </div>
                   )}
+                  <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span className="subtle" style={{ fontSize: '11px' }}>Status</span>
+                    <select
+                      className="select"
+                      value={finding.status || 'open'}
+                      disabled={findingStatusPendingId === String(finding.id)}
+                      onChange={(event) => handleFindingStatusChange(finding, event.target.value)}
+                      style={{ minHeight: '32px', padding: '6px 8px', fontSize: '12px' }}
+                    >
+                      {findingStatusOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               ))}
             </div>

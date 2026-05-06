@@ -38,6 +38,12 @@ export const api = {
   listSeniorMessages: (sessionId) => apiRequest(apiPaths.srDevMessages(sessionId)),
   sendSeniorMessage: (sessionId, data, isForm = false) =>
     apiRequest(apiPaths.srDevMessages(sessionId), { method: 'POST', body: data, isForm }),
+  listSeniorFindings: (sessionId) => apiRequest(apiPaths.srDevFindings(sessionId)),
+  updateSeniorFindingStatus: (sessionId, findingId, status) =>
+    apiRequest(apiPaths.srDevFinding(sessionId, findingId), {
+      method: 'PATCH',
+      body: { status },
+    }),
   refreshToken: (refresh) =>
     apiRequest(apiPaths.authRefresh, { method: 'POST', body: { refresh } }),
   verifyToken: (token) => apiRequest(apiPaths.authVerify, { method: 'POST', body: { token } }),

@@ -2,6 +2,7 @@ import json
 
 from django.conf import settings
 
+from multi_agent.agents.ollama_agent_run_with_retry import ollama_agent_run_with_retry
 from multi_agent.agents.pm.prompts.project_manager_agent_instructions import project_manager_agent_instructions
 from multi_agent.agents.pm.schemas import ProjectManagerAgentOutput
 
@@ -36,5 +37,9 @@ def project_manager_agent_run(*, context):
         markdown=False,
         instructions=project_manager_agent_instructions(),
     )
-    response = agent.run(json.dumps(context, sort_keys=True, default=str))
+    response = ollama_agent_run_with_retry(
+        agent,
+        json.dumps(context, sort_keys=True, default=str),
+        agent_name='Project Manager Agent',
+    )
     return normalize_output(getattr(response, 'content', response))

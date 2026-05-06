@@ -1,41 +1,22 @@
-from django.conf import settings
 from django.db import transaction
+from django.utils import timezone
 
-from multi_agent.models import SeniorDevMessage
-from multi_agent.providers import gemini_audio_transcribe
+from multi_agent.models import SeniorDevFinding, SeniorDevMessage
 from multi_agent.agents.sr_dev.agno import senior_dev_agent_run, senior_dev_parser_run
 from multi_agent.agents.sr_dev.tools.senior_dev_scoped_tools_create import senior_dev_scoped_tools_create
 from multi_agent.agents.sr_dev.tools.senior_dev_tool_call_summary_for_message import senior_dev_tool_call_summary_for_message
 from multi_agent.agents.sr_dev.tools.sr_dev_prepare_pm_handoff import sr_dev_prepare_pm_handoff
+from multi_agent.agents.sr_dev.validators import senior_dev_tool_evidence_filter
 from multi_agent.agents.sr_dev.workflows.senior_dev_claim_create_from_payload import senior_dev_claim_create_from_payload
 from multi_agent.agents.sr_dev.workflows.senior_dev_finding_create_from_payload import senior_dev_finding_create_from_payload
+from multi_agent.agents.pm.workflows import project_manager_agent_process_handoff
 
 
 def senior_dev_message_process(*, session, user, input_type, text='', choice='', choice_payload=None, audio_file=None):
-    def audio_metadata(file_obj):
-        return {
-            'file_name': getattr(file_obj, 'name', ''),
-            'content_type': getattr(file_obj, 'content_type', '') or 'application/octet-stream',
-            'size': getattr(file_obj, 'size', 0),
-        }
-
     def resolve_text_and_payload():
         payload = {}
         if input_type == SeniorDevMessage.InputType.AUDIO:
-            if not audio_file:
-                raise ValueError('audio is required when input_type is audio')
-            if getattr(audio_file, 'size', 0) > settings.SR_DEV_AUDIO_MAX_MB * 1024 * 1024:
-                raise ValueError(f'audio must be {settings.SR_DEV_AUDIO_MAX_MB}MB or smaller')
-            metadata = audio_metadata(audio_file)
-            if not metadata['content_type'].startswith('audio/'):
-                raise ValueError('audio content type must start with audio/')
-            transcript = gemini_audio_transcribe(
-                audio_bytes=audio_file.read(),
-                content_type=metadata['content_type'],
-            )
-            payload['audio_metadata'] = metadata
-            payload['transcript_provider'] = 'gemini'
-            return transcript, payload
+            raise ValueError('audio input is not supported by the Ollama-only agent stack')
         if input_type == SeniorDevMessage.InputType.CHOICE:
             payload['choice_payload'] = choice_payload or {}
             return str(choice or text or '').strip(), payload
@@ -58,19 +39,20 @@ def senior_dev_message_process(*, session, user, input_type, text='', choice='',
         )
 
     tools = senior_dev_scoped_tools_create(session=session, message=user_message)
-    assistant_text = senior_dev_agent_run(session=session, user_message=user_message, tools=tools)
+    agent_error = None
+    try:
+        assistant_text = senior_dev_agent_run(session=session, user_message=user_message, tools=tools)
+    except Exception as exc:
+        assistant_text = (
+            'I could not complete the repository review because the Senior Dev agent provider failed '
+            'or was temporarily unavailable. Please try again in a moment.'
+        )
+        agent_error = {'code': 'agent_error', 'detail': str(exc)}
     if not assistant_text:
         assistant_text = 'I reviewed your message, but I need one more detail before I can verify it against the repository.'
 
     tool_call_summary = senior_dev_tool_call_summary_for_message(user_message)
-    try:
-        parser_payload = senior_dev_parser_run(
-            session=session,
-            user_message=user_message,
-            assistant_text=assistant_text,
-            tool_call_summary=tool_call_summary,
-        )
-    except Exception as exc:
+    if agent_error:
         parser_payload = {
             'assistant_message': assistant_text,
             'check_in_question': '',
@@ -79,14 +61,40 @@ def senior_dev_message_process(*, session, user, input_type, text='', choice='',
             'conversation_summary': assistant_text,
             'claims': [],
             'findings': [],
-            'parser_error': str(exc),
+            'parser_error': '',
         }
+    else:
+        try:
+            parser_payload = senior_dev_parser_run(
+                session=session,
+                user_message=user_message,
+                assistant_text=assistant_text,
+                tool_call_summary=tool_call_summary,
+            )
+        except Exception as exc:
+            parser_payload = {
+                'assistant_message': assistant_text,
+                'check_in_question': '',
+                'choices': [],
+                'allow_free_text': True,
+                'conversation_summary': assistant_text,
+                'claims': [],
+                'findings': [],
+                'parser_error': str(exc),
+            }
 
     assistant_text = str(parser_payload.get('assistant_message') or assistant_text).strip()
-    claims_payload = parser_payload.get('claims') if isinstance(parser_payload.get('claims'), list) else []
-    findings_payload = parser_payload.get('findings') if isinstance(parser_payload.get('findings'), list) else []
+    verification_payload = senior_dev_tool_evidence_filter(
+        parser_payload=parser_payload,
+        tool_call_summary=tool_call_summary,
+        commit_sha=session.commit_sha,
+    )
+    claims_payload = verification_payload['claims']
+    findings_payload = [] if agent_error else verification_payload['findings']
+    rejected_findings = verification_payload['rejected_findings']
+    verification_status = verification_payload['verification_status']
     handoff = None
-    if findings_payload:
+    if findings_payload and not agent_error:
         handoff = sr_dev_prepare_pm_handoff(
             project_id=session.project_id,
             current_user_id=session.user_id,
@@ -107,7 +115,11 @@ def senior_dev_message_process(*, session, user, input_type, text='', choice='',
                 'allow_free_text': bool(parser_payload.get('allow_free_text', True)),
                 'claims': claims_payload,
                 'findings': findings_payload,
+                'rejected_findings': rejected_findings,
+                'verification_status': verification_status,
                 'handoff': handoff,
+                'pm_handoff_result': None,
+                'agent_error': agent_error or {},
                 'tool_call_summary': tool_call_summary,
                 'parser_error': parser_payload.get('parser_error', ''),
             },
@@ -139,6 +151,30 @@ def senior_dev_message_process(*, session, user, input_type, text='', choice='',
         ]
         session.save(update_fields=['updated_at'])
 
+    pm_handoff_result = None
+    if handoff and findings and not agent_error:
+        try:
+            pm_handoff_result = project_manager_agent_process_handoff(
+                session.project_id,
+                session.user_id,
+                assistant_message.id,
+            )
+        except Exception as exc:
+            pm_handoff_result = {'ok': False, 'code': 'pm_handoff_error', 'detail': str(exc)}
+
+        if isinstance(pm_handoff_result, dict) and pm_handoff_result.get('ok'):
+            SeniorDevFinding.objects.filter(id__in=[finding.id for finding in findings]).update(
+                status=SeniorDevFinding.Status.HANDED_OFF,
+                updated_at=timezone.now(),
+            )
+            for finding in findings:
+                finding.status = SeniorDevFinding.Status.HANDED_OFF
+
+        structured_payload = dict(assistant_message.structured_payload or {})
+        structured_payload['pm_handoff_result'] = pm_handoff_result
+        assistant_message.structured_payload = structured_payload
+        assistant_message.save(update_fields=['structured_payload'])
+
     return {
         'ok': True,
         'session_id': session.id,
@@ -153,5 +189,9 @@ def senior_dev_message_process(*, session, user, input_type, text='', choice='',
         'findings': findings_payload,
         'finding_ids': [finding.id for finding in findings],
         'handoff': handoff,
+        'pm_handoff_result': pm_handoff_result,
+        'agent_error': agent_error or {},
+        'rejected_findings': rejected_findings,
+        'verification_status': verification_status,
         'tool_call_summary': tool_call_summary,
     }
