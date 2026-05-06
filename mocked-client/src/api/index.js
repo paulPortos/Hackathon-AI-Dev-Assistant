@@ -13,6 +13,8 @@ export const api = {
   importProjectFromGithub: (data) =>
     apiRequest(apiPaths.projectImport, { method: 'POST', body: data }),
   getProject: (projectId) => apiRequest(apiPaths.projectDetail(projectId)),
+  updateProject: (projectId, data) =>
+    apiRequest(apiPaths.projectDetail(projectId), { method: 'PATCH', body: data }),
   listProjectMembers: (projectId) => apiRequest(apiPaths.projectMembers(projectId)),
   inviteProjectMember: (projectId, data) =>
     apiRequest(apiPaths.projectMembers(projectId), { method: 'POST', body: data }),
@@ -24,7 +26,17 @@ export const api = {
   removeProjectMember: (projectId, memberId) =>
     apiRequest(apiPaths.projectMemberDetail(projectId, memberId), { method: 'DELETE' }),
   listProjectTasks: (projectId) => apiRequest(apiPaths.projectTasks(projectId)),
+  getProjectTask: (projectId, taskId) => apiRequest(apiPaths.projectTaskDetail(projectId, taskId)),
+  updateProjectTask: (projectId, taskId, data) =>
+    apiRequest(apiPaths.projectTaskDetail(projectId, taskId), { method: 'PATCH', body: data }),
+  deleteProjectTask: (projectId, taskId) =>
+    apiRequest(apiPaths.projectTaskDetail(projectId, taskId), { method: 'DELETE' }),
   listProjectVulnerabilities: (projectId) => apiRequest(apiPaths.projectVulnerabilities(projectId)),
+  getProjectVulnerability: (projectId, vulnerabilityId) =>
+    apiRequest(apiPaths.projectVulnerabilityDetail(projectId, vulnerabilityId)),
+  deleteProjectVulnerability: (projectId, vulnerabilityId) =>
+    apiRequest(apiPaths.projectVulnerabilityDetail(projectId, vulnerabilityId), { method: 'DELETE' }),
+  listProjectAuditLogs: (projectId) => apiRequest(apiPaths.projectAuditLogs(projectId)),
   getMeetingSettings: (projectId) => apiRequest(apiPaths.projectMeetingSettings(projectId)),
   updateMeetingSettings: (projectId, data, method = 'PATCH') =>
     apiRequest(apiPaths.projectMeetingSettings(projectId), { method, body: data }),

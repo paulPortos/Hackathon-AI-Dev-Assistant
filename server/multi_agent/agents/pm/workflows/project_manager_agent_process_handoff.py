@@ -80,9 +80,28 @@ def project_manager_agent_process_handoff(project_id, current_user_id, senior_de
         except ValueError as exc:
             raise ValueError('Task due_date must use YYYY-MM-DD format') from exc
 
+    def is_file_missing_finding(item):
+        def normalize(value):
+            return str(value or '').strip().lower().replace(' ', '').replace('_', '')
+
+        category = normalize(item.get('category'))
+        finding_type = normalize(item.get('type') or item.get('finding_type'))
+        return category in {'filemissing', 'missingfile'} or finding_type in {'filemissing', 'missingfile'}
+
     def normalize_vulnerability(candidate, source_item, source_index, source_validations, rejected_items):
         if source_index is None or not source_item:
             reject(rejected_items, 'vulnerability', candidate, 'missing_source_finding', 'Vulnerability must map to a Senior Dev finding', source_index)
+            return None
+
+        if is_file_missing_finding(source_item):
+            reject(
+                rejected_items,
+                'vulnerability',
+                candidate,
+                'non_vulnerability_finding',
+                'File-missing findings are informational and do not create vulnerability records',
+                source_index,
+            )
             return None
 
         title = str(candidate.get('title') or candidate.get('summary') or '').strip()

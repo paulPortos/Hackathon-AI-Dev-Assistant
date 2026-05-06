@@ -16,6 +16,7 @@ from projects.services.project_task_update import project_task_update
 from projects.services.project_update_context import project_update_context
 from projects.services.project_update_github_metadata import project_update_github_metadata
 from projects.services.project_vulnerability_create import project_vulnerability_create
+from projects.services.project_vulnerability_delete import project_vulnerability_delete
 from projects.services.project_vulnerability_mark_resolved import project_vulnerability_mark_resolved
 
 __all__ = [
@@ -37,5 +38,6 @@ __all__ = [
     'project_update_context',
     'project_update_github_metadata',
     'project_vulnerability_create',
+    'project_vulnerability_delete',
     'project_vulnerability_mark_resolved',
 ]

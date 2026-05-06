@@ -14,6 +14,7 @@ class ProjectAuditLog(models.Model):
         TASK_DELETED = 'task_deleted', 'Task deleted'
         VULNERABILITY_CREATED = 'vulnerability_created', 'Vulnerability created'
         VULNERABILITY_RESOLVED = 'vulnerability_resolved', 'Vulnerability resolved'
+        VULNERABILITY_DELETED = 'vulnerability_deleted', 'Vulnerability deleted'
 
     class TargetType(models.TextChoices):
         PROJECT_TASK = 'project_task', 'Project task'

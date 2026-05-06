@@ -45,8 +45,12 @@ export const apiPaths = {
   projectMembers: (projectId) => `/projects/${projectId}/members/`,
   projectMemberDetail: (projectId, memberId) => `/projects/${projectId}/members/${memberId}/`,
   projectTasks: ENDPOINTS.PROJECTS.TASKS,
+  projectTaskDetail: (projectId, taskId) => `/projects/${projectId}/tasks/${taskId}/`,
   projectVulnerabilities: ENDPOINTS.PROJECTS.VULNERABILITIES,
-  projectMeetingSettings: (projectId) => `/projects/${projectId}/meeting-settings/`,
+  projectVulnerabilityDetail: (projectId, vulnerabilityId) =>
+    `/projects/${projectId}/vulnerabilities/${vulnerabilityId}/`,
+  projectAuditLogs: (projectId) => `/projects/${projectId}/audit-logs/`,
+  projectMeetingSettings: (projectId) => `/scrum/projects/${projectId}/meeting-settings/`,
   projectBranches: (projectId) => `/projects/${projectId}/repository/branches/`,
   srDevSessions: '/agents/sr-dev/sessions/',
   srDevSession: (sessionId) => `/agents/sr-dev/sessions/${sessionId}/`,
