@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 import { api } from '../api';
 import { authStorage, normalizeList } from '../api/client';
@@ -82,6 +84,7 @@ export default function SeniorPage() {
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
   const [toolEvents, setToolEvents] = useState([]);
+  const [reconnectKey, setReconnectKey] = useState(0);
   const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
   const autoCreatedRef = useRef(new Set());
@@ -232,6 +235,11 @@ export default function SeniorPage() {
       socketRef.current.close();
       socketRef.current = null;
     }
+  };
+
+  const handleReconnect = () => {
+    setError('');
+    setReconnectKey((prev) => prev + 1);
   };
 
   const sendWsPayload = (payload) => {
@@ -462,7 +470,7 @@ export default function SeniorPage() {
         socketRef.current = null;
       }
     };
-  }, [selectedSessionId]);
+  }, [selectedSessionId, reconnectKey]);
 
   const sendChoice = async (choiceText) => {
     if (!selectedSessionId) return;
@@ -518,7 +526,28 @@ export default function SeniorPage() {
             <h3 style={{ margin: 0 }}>Senior AI Assistant</h3>
             <p className="subtle" style={{ margin: 0, fontSize: '12px' }}>Choice-driven development partner</p>
           </div>
-          {error && <span className="tag" style={{ background: '#ffebee', color: '#c62828' }}>{error}</span>}
+          {error && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span className="tag" style={{ background: '#ffebee', color: '#c62828' }}>{error}</span>
+              {(error.includes('disconnected') || error.includes('error')) && (
+                <button
+                  className="button secondary"
+                  onClick={handleReconnect}
+                  style={{
+                    padding: '4px 12px',
+                    height: '28px',
+                    fontSize: '11px',
+                    borderRadius: 'var(--radius-sm)',
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}
+                >
+                  Reconnect
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="chat-messages" style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -532,7 +561,13 @@ export default function SeniorPage() {
               <div key={message.id} className={`message-bubble ${message.role === 'assistant' ? 'assistant' : 'user'}`}>
                 <div className="avatar">{message.role === 'assistant' ? 'AI' : 'U'}</div>
                 <div className="content">
-                  <div className="text">{message.text_content}</div>
+                  <div className="text">
+                    {message.role === 'assistant' ? (
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.text_content}</ReactMarkdown>
+                    ) : (
+                      message.text_content
+                    )}
+                  </div>
                 </div>
               </div>
             ))

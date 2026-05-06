@@ -945,3 +945,73 @@ button {
 .thinking-dots span:nth-child(1) { animation-delay: 0s; }
 .thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
 .thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+/* Markdown Content Styles */
+.message-bubble .text table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 12px 0;
+  font-size: 13px;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.message-bubble .text th,
+.message-bubble .text td {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  padding: 10px 12px;
+  text-align: left;
+}
+.message-bubble .text th {
+  background: rgba(0, 0, 0, 0.04);
+  font-weight: 700;
+}
+.message-bubble .text ul,
+.message-bubble .text ol {
+  margin: 8px 0;
+  padding-left: 24px;
+}
+.message-bubble .text li {
+  margin-bottom: 4px;
+  padding: 0;
+  background: transparent;
+  border: none;
+}
+.message-bubble .text code {
+  background: rgba(0, 0, 0, 0.06);
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.9em;
+}
+.message-bubble .text pre {
+  background: #1e1e1e;
+  color: #d4d4d4;
+  padding: 16px;
+  border-radius: 12px;
+  overflow-x: auto;
+  margin: 16px 0;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+.message-bubble .text pre code {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  font-size: 13px;
+}
+.message-bubble .text h1,
+.message-bubble .text h2,
+.message-bubble .text h3,
+.message-bubble .text h4 {
+  margin: 16px 0 8px;
+  font-family: 'Fraunces', serif;
+}
+.message-bubble .text p {
+  margin: 8px 0;
+}
+.message-bubble .text p:first-child {
+  margin-top: 0;
+}
+.message-bubble .text p:last-child {
+  margin-bottom: 0;
+}

@@ -55,12 +55,26 @@ def senior_dev_parser_run(*, session, user_message, assistant_text, tool_call_su
                 finding['confidence_score'] = confidence_score
             return finding
 
+        def normalize_list_of_dicts(items):
+            """Coerce any string items to {'text': str}."""
+            if not isinstance(items, list):
+                return items
+            result = []
+            for item in items:
+                if isinstance(item, dict):
+                    result.append(item)
+                elif isinstance(item, str) and item.strip():
+                    result.append({'text': item.strip()})
+            return result
+
         def normalize_payload(payload):
             if not isinstance(payload, dict):
                 return payload
             if payload.get('choices') is None:
                 payload['choices'] = []
-            findings = payload.get('findings')
+            
+            payload['claims'] = normalize_list_of_dicts(payload.get('claims') or [])
+            findings = normalize_list_of_dicts(payload.get('findings') or [])
             if isinstance(findings, list):
                 payload['findings'] = [ensure_confidence_score(item) for item in findings]
             return payload
