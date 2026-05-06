@@ -120,6 +120,10 @@ button {
   width: 100%;
 }
 
+.app-content.full-width {
+  max-width: none;
+}
+
 .top-nav {
   position: sticky;
   top: 0;
@@ -773,6 +777,87 @@ button {
 
 .session-item.active {
   border-left: 3px solid var(--accent-500) !important;
+}
+
+/* Kanban Board Styles */
+.kanban-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  padding-bottom: 24px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--khaki-300) transparent;
+}
+
+.kanban-wrapper::-webkit-scrollbar {
+  height: 8px;
+}
+
+.kanban-wrapper::-webkit-scrollbar-thumb {
+  background: var(--khaki-300);
+  border-radius: 4px;
+}
+
+.kanban-container {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+  padding: 8px;
+  min-height: 400px;
+}
+
+.kanban-column {
+  flex: 0 0 320px;
+  background: rgba(255, 255, 255, 0.4);
+  border-radius: 20px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(135, 120, 89, 0.15);
+  transition: background 0.2s ease;
+  min-height: 100px;
+  max-height: calc(100vh - 240px);
+}
+
+.kanban-column:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.cards-list {
+  display: grid;
+  gap: 12px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1 1 auto;
+  padding-right: 4px;
+  padding-bottom: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--khaki-300) transparent;
+}
+
+.cards-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.cards-list::-webkit-scrollbar-thumb {
+  background: var(--khaki-300);
+  border-radius: 4px;
+}
+
+@media (max-width: 768px) {
+  .kanban-column {
+    flex: 0 0 280px;
+  }
+}
+
+@media (max-width: 480px) {
+  .kanban-container {
+    flex-direction: column;
+    overflow-x: visible;
+  }
+  .kanban-column {
+    flex: 1 1 auto;
+    width: 100%;
+  }
 }
 
 @keyframes fadeIn {

@@ -68,6 +68,7 @@ class ColumnCardsView(generics.ListCreateAPIView):
     filter_backends = [DjangoFilterBackend]
     filterset_class = CardFilter
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = None
 
     def get_queryset(self):
         return Card.objects.filter(

@@ -4,7 +4,8 @@ from scrum.agents.scrum.tools.scrum_send_due_reminder_emails import scrum_send_d
 from scrum.agents.scrum.tools.kanban_tools import (
     kanban_list_boards, kanban_get_board_detail,
     kanban_add_card, kanban_move_card,
-    kanban_update_card, kanban_delete_card
+    kanban_update_card, kanban_delete_card,
+    kanban_bulk_move_cards
 )
 from scrum.agents.scrum.tools.kanban_declarations import KANBAN_FUNCTION_DECLARATIONS
 from scrum.agents.scrum.tools.github_issues_declarations import GITHUB_ISSUES_FUNCTION_DECLARATIONS
@@ -22,6 +23,7 @@ __all__ = [
     'kanban_move_card',
     'kanban_update_card',
     'kanban_delete_card',
+    'kanban_bulk_move_cards',
     'github_list_issues',
     'github_get_issue',
     'KANBAN_FUNCTION_DECLARATIONS',

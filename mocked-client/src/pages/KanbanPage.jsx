@@ -64,6 +64,64 @@ export default function KanbanPage() {
     }
   };
 
+  const handleRenameBoard = async () => {
+    if (!selectedBoard) return;
+    const newName = prompt('Enter new board name:', selectedBoard.name);
+    if (!newName || newName === selectedBoard.name) return;
+    try {
+      const updatedBoard = await api.updateBoard(selectedBoard.id, { name: newName });
+      setBoards(prev => prev.map(b => b.id === updatedBoard.id ? updatedBoard : b));
+      setSelectedBoard(updatedBoard);
+    } catch (err) {
+      alert('Failed to rename board: ' + err.message);
+    }
+  };
+
+  const handleDragStart = (e, card) => {
+    e.dataTransfer.setData('cardId', card.id);
+    e.dataTransfer.setData('sourceColumnId', card.column);
+    e.target.style.opacity = '0.5';
+  };
+
+  const handleDragEnd = (e) => {
+    e.target.style.opacity = '1';
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = async (e, targetColumnId) => {
+    e.preventDefault();
+    const cardId = Number(e.dataTransfer.getData('cardId'));
+    const sourceColumnId = Number(e.dataTransfer.getData('sourceColumnId'));
+
+    if (sourceColumnId === targetColumnId) return;
+
+    // Optimistic UI update
+    setCardsByColumn(prev => {
+      const sourceCards = prev[sourceColumnId] || [];
+      const cardToMove = sourceCards.find(c => c.id === cardId);
+      if (!cardToMove) return prev;
+
+      const newSourceCards = sourceCards.filter(c => c.id !== cardId);
+      const newTargetCards = [...(prev[targetColumnId] || []), { ...cardToMove, column: targetColumnId }];
+
+      return {
+        ...prev,
+        [sourceColumnId]: newSourceCards,
+        [targetColumnId]: newTargetCards
+      };
+    });
+
+    try {
+      await api.moveCard(cardId, { column_id: targetColumnId, position: 1 });
+    } catch (err) {
+      console.error('Failed to move card:', err);
+      loadBoardData(selectedBoard.id, { silent: true });
+    }
+  };
+
   const handleCreateBoard = async () => {
     const name = prompt('Enter board name:');
     if (!name) return;
@@ -221,47 +279,51 @@ export default function KanbanPage() {
   }
 
   return (
-    <div className="page" style={{ maxWidth: '1400px' }}>
-      <header style={{ marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div className="page" style={{ maxWidth: 'none', width: '100%' }}>
+      <header style={{ marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', padding: '0 8px' }}>
         <div>
           <h1 style={{ fontFamily: 'Fraunces', fontSize: '32px', margin: '0 0 8px' }}>Kanban Board</h1>
           <p className="subtle">Manage your project tasks and workflow stages.</p>
         </div>
-        <div className="inline-actions">
-          <select 
-            className="select" 
-            value={selectedBoard?.id || ''} 
-            onChange={(e) => setSelectedBoard(boards.find(b => b.id === Number(e.target.value)))}
-            style={{ minWidth: '200px' }}
-          >
-            {boards.map(b => (
-              <option key={b.id} value={b.id}>{b.name}</option>
-            ))}
-            {boards.length === 0 && <option value="">No boards found</option>}
-          </select>
+        <div className="inline-actions" style={{ alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <select 
+              className="select" 
+              value={selectedBoard?.id || ''} 
+              onChange={(e) => setSelectedBoard(boards.find(b => b.id === Number(e.target.value)))}
+              style={{ minWidth: '200px' }}
+            >
+              {boards.map(b => (
+                <option key={b.id} value={b.id}>{b.name}</option>
+              ))}
+              {boards.length === 0 && <option value="">No boards found</option>}
+            </select>
+            {selectedBoard && (
+              <button 
+                className="button ghost" 
+                style={{ padding: '8px 12px', fontSize: '12px' }} 
+                onClick={handleRenameBoard}
+                title="Rename Board"
+              >
+                Rename
+              </button>
+            )}
+          </div>
           <button className="button" onClick={handleCreateBoard}>New Board</button>
         </div>
       </header>
 
       {error && <p className="pill" style={{ background: 'var(--accent-100)', color: 'var(--accent-700)', marginBottom: '20px' }}>{error}</p>}
 
-      <div className="kanban-container" style={{ 
-        display: 'flex', 
-        gap: '24px', 
-        overflowX: 'auto', 
-        paddingBottom: '24px',
-        minHeight: '70vh'
-      }}>
-        {columns.map(column => (
-          <div key={column.id} className="kanban-column" style={{ 
-            flex: '0 0 320px', 
-            background: 'rgba(255, 255, 255, 0.4)', 
-            borderRadius: '20px',
-            padding: '16px',
-            display: 'flex',
-            flexDirection: 'column',
-            border: '1px solid rgba(135, 120, 89, 0.15)'
-          }}>
+      <div className="kanban-wrapper">
+        <div className="kanban-container">
+          {columns.map(column => (
+          <div 
+            key={column.id} 
+            className="kanban-column"
+            onDragOver={handleDragOver}
+            onDrop={(e) => handleDrop(e, column.id)}
+          >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', padding: '0 8px' }}>
               <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>{column.name}</h3>
               <span className="pill" style={{ fontSize: '11px', padding: '2px 8px' }}>
@@ -269,14 +331,22 @@ export default function KanbanPage() {
               </span>
             </div>
 
-            <div className="cards-list" style={{ display: 'grid', gap: '12px' }}>
+            <div className="cards-list">
               {(cardsByColumn[column.id] || []).map(card => (
-                <div key={card.id} className="section-card" onClick={() => openEditModal(card)} style={{ 
-                  padding: '14px', 
-                  cursor: 'pointer',
-                  transition: 'transform 0.2s ease',
-                  boxShadow: '0 4px 12px rgba(44, 38, 23, 0.08)'
-                }}>
+                <div 
+                  key={card.id} 
+                  className="section-card" 
+                  onClick={() => openEditModal(card)} 
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, card)}
+                  onDragEnd={handleDragEnd}
+                  style={{ 
+                    padding: '14px', 
+                    cursor: 'grab',
+                    transition: 'transform 0.2s ease, opacity 0.2s ease',
+                    boxShadow: '0 4px 12px rgba(44, 38, 23, 0.08)'
+                  }}
+                >
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
                     {card.labels?.map(label => (
                       <span key={label.id} className="tag" style={{ 
@@ -291,7 +361,7 @@ export default function KanbanPage() {
                   </div>
                   <h4 style={{ margin: '0 0 6px', fontSize: '14px' }}>{card.title}</h4>
                   {card.description && (
-                    <p className="subtle" style={{ fontSize: '12px', margin: '0 0 12px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    <p className="subtle" style={{ fontSize: '12px', margin: '0 0 12px', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                       {card.description}
                     </p>
                   )}
@@ -310,14 +380,14 @@ export default function KanbanPage() {
                   </div>
                 </div>
               ))}
-              <button 
-                className="button ghost" 
-                style={{ width: '100%', padding: '8px', fontSize: '12px', borderStyle: 'dashed' }}
-                onClick={(e) => { e.stopPropagation(); handleCreateCard(column.id); }}
-              >
-                + Add Card
-              </button>
             </div>
+            <button 
+              className="button ghost" 
+              style={{ width: '100%', padding: '8px', fontSize: '12px', borderStyle: 'dashed', marginTop: '12px', flexShrink: 0 }}
+              onClick={(e) => { e.stopPropagation(); handleCreateCard(column.id); }}
+            >
+              + Add Card
+            </button>
           </div>
         ))}
         
@@ -326,7 +396,7 @@ export default function KanbanPage() {
           onClick={handleCreateColumn}
           style={{ 
             flex: '0 0 320px', 
-            height: '100px', 
+            minHeight: '100px', 
             borderRadius: '20px', 
             borderStyle: 'dashed',
             background: 'rgba(255, 255, 255, 0.2)'
@@ -335,6 +405,7 @@ export default function KanbanPage() {
           + Add Column
         </button>
       </div>
+    </div>
 
       <Modal
         isOpen={editModalOpen}

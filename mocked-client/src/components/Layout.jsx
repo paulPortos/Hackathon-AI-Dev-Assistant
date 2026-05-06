@@ -80,7 +80,7 @@ export default function Layout() {
              </div>
           </div>
         </header>
-        <main className="app-content">
+        <main className={`app-content ${location.pathname === '/kanban' ? 'full-width' : ''}`}>
           <Outlet />
         </main>
       </div>
