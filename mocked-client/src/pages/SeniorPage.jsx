@@ -545,13 +545,13 @@ export default function SeniorPage() {
               disabled={!selectedSessionId}
             />
           </div>
-          
+
           <div className="field">
             <label className="label" style={{ fontSize: '12px' }}>Project Branch</label>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <select 
-                className="select" 
-                value={selectedBranch} 
+              <select
+                className="select"
+                value={selectedBranch}
                 onChange={(e) => handleBranchSelect(e.target.value)}
                 style={{ flex: 1 }}
               >
@@ -560,8 +560,8 @@ export default function SeniorPage() {
                 ))}
                 {branches.length === 0 && <option value="main">main</option>}
               </select>
-              <button 
-                className="button secondary" 
+              <button
+                className="button secondary"
                 style={{ padding: '8px' }}
                 onClick={() => handleBranchSelect(selectedBranch)}
                 title="Use selected branch commit"
@@ -578,9 +578,9 @@ export default function SeniorPage() {
 
           <div className="field" style={{ marginTop: '16px' }}>
             <label className="label" style={{ fontSize: '12px' }}>Switch Session</label>
-            <select 
-              className="select" 
-              value={selectedSessionId} 
+            <select
+              className="select"
+              value={selectedSessionId}
               onChange={(e) => setSelectedSessionId(e.target.value)}
             >
               <option value="">Select a session...</option>
@@ -598,13 +598,13 @@ export default function SeniorPage() {
           <h4 style={{ margin: '0 0 16px' }}>Today</h4>
           <div className="list">
             {sessions.slice(0, 5).map(session => (
-              <div 
-                key={session.id} 
+              <div
+                key={session.id}
                 className={`session-item ${selectedSessionId === String(session.id) ? 'active' : ''}`}
                 onClick={() => setSelectedSessionId(String(session.id))}
-                style={{ 
-                  padding: '12px', 
-                  borderRadius: 'var(--radius-sm)', 
+                style={{
+                  padding: '12px',
+                  borderRadius: 'var(--radius-sm)',
                   cursor: 'pointer',
                   background: selectedSessionId === String(session.id) ? 'var(--accent-100)' : 'transparent',
                   marginBottom: '8px',

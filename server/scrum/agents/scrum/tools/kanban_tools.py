@@ -164,3 +164,25 @@ def kanban_bulk_move_cards(card_ids: list[int], target_column_id: int):
         return {'ok': False, 'error': f'Column with ID {target_column_id} not found.'}
     except Exception as e:
         return {'ok': False, 'error': str(e)}
+
+@database_sync_to_async
+def kanban_bulk_update_cards(card_ids: list[int], priority: str = None, due_date: str = None):
+    """Updates multiple cards at once (e.g., bulk set due date or priority)."""
+    try:
+        with transaction.atomic():
+            results = []
+            for card_id in card_ids:
+                try:
+                    card = Card.objects.get(id=card_id)
+                    if priority is not None:
+                        card.priority = priority
+                    if due_date is not None:
+                        card.start_datetime = due_date
+                    card.save()
+                    results.append({'id': card_id, 'ok': True})
+                except Card.DoesNotExist:
+                    results.append({'id': card_id, 'ok': False, 'error': 'Not found'})
+            
+        return {'ok': True, 'results': results}
+    except Exception as e:
+        return {'ok': False, 'error': str(e)}

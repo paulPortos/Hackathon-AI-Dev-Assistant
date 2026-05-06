@@ -83,5 +83,22 @@ KANBAN_FUNCTION_DECLARATIONS = [
             },
             "required": ["card_ids", "target_column_id"]
         }
+    },
+    {
+        "name": "kanban_bulk_update_cards",
+        "description": "Update multiple cards at once (e.g., bulk set due date or priority).",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "card_ids": {
+                    "type": "array",
+                    "items": {"type": "integer"},
+                    "description": "List of Card IDs to update"
+                },
+                "priority": {"type": "string", "enum": ["low", "medium", "high", "urgent"]},
+                "due_date": {"type": "string", "description": "Due date in ISO 8601 format (e.g., '2026-05-06T12:00:00Z')"}
+            },
+            "required": ["card_ids"]
+        }
     }
 ]

@@ -14,6 +14,7 @@ from scrum.agents.scrum.tools import (
     kanban_update_card,
     kanban_delete_card,
     kanban_bulk_move_cards,
+    kanban_bulk_update_cards,
     GITHUB_ISSUES_FUNCTION_DECLARATIONS,
     github_list_issues,
     github_get_issue,
@@ -140,6 +141,7 @@ class ScrumLiveConsumer(AsyncWebsocketConsumer):
             "When the user asks about tasks, first use kanban_list_boards and kanban_get_board_detail to understand the current state. "
             "When the user asks to add, move, or update tasks, use the appropriate tool. "
             "When the user asks to move multiple tasks, ALWAYS use kanban_bulk_move_cards instead of moving them one by one. "
+            "When the user asks to update multiple tasks, ALWAYS use kanban_bulk_update_cards instead of updating them one by one. "
             "CRITICAL SAFEGUARD FOR DELETION: When the user asks to delete a card, NEVER use the kanban_delete_card tool immediately. First, verbally ask the user for confirmation (e.g., 'Are you sure you want to delete this task?'). Only proceed to use the kanban_delete_card tool if the user explicitly confirms."
             "Always confirm what you did after completing an action."
         )
@@ -254,6 +256,7 @@ class ScrumLiveConsumer(AsyncWebsocketConsumer):
             "kanban_update_card": kanban_update_card,
             "kanban_delete_card": kanban_delete_card,
             "kanban_bulk_move_cards": kanban_bulk_move_cards,
+            "kanban_bulk_update_cards": kanban_bulk_update_cards,
             "github_list_issues": github_list_issues,
             "github_get_issue": github_get_issue,
         }
@@ -270,7 +273,7 @@ class ScrumLiveConsumer(AsyncWebsocketConsumer):
             await self.save_tool_call(name, args, result, ScrumToolCall.Status.SUCCESS)
             
             # Notify frontend of changes
-            if name in ("kanban_add_card", "kanban_move_card", "kanban_update_card", "kanban_delete_card", "kanban_bulk_move_cards"):
+            if name in ("kanban_add_card", "kanban_move_card", "kanban_update_card", "kanban_delete_card", "kanban_bulk_move_cards", "kanban_bulk_update_cards"):
                 await self.send(text_data=json.dumps({"type": "kanban_update"}))
                 
             return result
