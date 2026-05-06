@@ -3,6 +3,7 @@ import { api } from '../api';
 import { normalizeList } from '../api/client';
 import SectionCard from '../components/SectionCard';
 import Modal from '../components/Modal';
+import { WS_ROOT } from '../api/config';
 
 export default function KanbanPage() {
   const [boards, setBoards] = useState([]);
@@ -183,6 +184,35 @@ export default function KanbanPage() {
     if (selectedBoard) {
       loadBoardData(selectedBoard.id);
     }
+  }, [selectedBoard]);
+
+  // Real-time updates via WebSocket
+  useEffect(() => {
+    if (!selectedBoard) return;
+
+    const wsUrl = `${WS_ROOT}/kanban/${selectedBoard.id}/`;
+    console.log('Connecting to Kanban WebSocket:', wsUrl);
+    const ws = new WebSocket(wsUrl);
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === 'kanban_message') {
+        console.log('Kanban update received:', data);
+        loadBoardData(selectedBoard.id);
+      }
+    };
+
+    ws.onclose = () => {
+      console.log('Kanban WebSocket closed');
+    };
+
+    ws.onerror = (err) => {
+      console.error('Kanban WebSocket error:', err);
+    };
+
+    return () => {
+      ws.close();
+    };
   }, [selectedBoard]);
 
   if (status === 'loading' && boards.length === 0) {

@@ -188,4 +188,31 @@ class ScrumLiveConsumer(AsyncWebsocketConsumer):
             await self.send(text_data=json.dumps({"type": "error", "message": "Gemini connection lost. Please reconnect."}))
             await self.close()
 
+class KanbanConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        self.board_id = self.scope['url_route']['kwargs'].get('board_id')
+        self.group_name = f"kanban_board_{self.board_id}"
+
+        # Join board group
+        await self.channel_layer.group_add(
+            self.group_name,
+            self.channel_name
+        )
+
+        await self.accept()
+        print(f"KanbanConsumer connected to {self.group_name}")
+
+    async def disconnect(self, close_code):
+        # Leave board group
+        if hasattr(self, 'group_name'):
+            await self.channel_layer.group_discard(
+                self.group_name,
+                self.channel_name
+            )
+        print(f"KanbanConsumer disconnected")
+
+    async def kanban_message(self, event):
+        # Send message to WebSocket
+        await self.send(text_data=json.dumps(event))
+
 
