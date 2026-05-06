@@ -12,6 +12,8 @@ import ProjectsPage from './pages/ProjectsPage';
 import ProjectPage from './pages/ProjectPage';
 import RegisterPage from './pages/RegisterPage';
 import SeniorPage from './pages/SeniorPage';
+import KanbanPage from './pages/KanbanPage';
+import CalendarPage from './pages/CalendarPage';
 import ScrumLiveAgent from './components/ScrumLiveAgent';
 
 export default function App() {
@@ -30,6 +32,8 @@ export default function App() {
             <Route path="/projects/:projectId" element={<ProjectPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/senior" element={<SeniorPage />} />
+            <Route path="/kanban" element={<KanbanPage />} />
+            <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/scrum-live" element={<ScrumLiveAgent />} />
           </Route>
 

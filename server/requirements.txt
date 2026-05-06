@@ -11,3 +11,5 @@ cryptography==47.0.0
 agno==2.1.10
 google-genai==1.47.0
 django-cors-headers==4.7.0
+django-filter==24.3
+python-dateutil==2.9.0.post0

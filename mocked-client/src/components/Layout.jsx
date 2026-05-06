@@ -11,7 +11,7 @@ export default function Layout() {
     <div className="app-shell">
       <aside className="side-nav">
         <div className="brand" style={{ marginBottom: '40px' }}>
-          undefined
+          AI Dev Assistant
         </div>
         <nav className="side-links">
           <NavLink to="/home" className={({ isActive }) => (isActive ? 'active' : '')}>
@@ -23,15 +23,24 @@ export default function Layout() {
           <NavLink to="/senior" className={({ isActive }) => (isActive ? 'active' : '')}>
             Senior AI
           </NavLink>
+          <NavLink to="/kanban" className={({ isActive }) => (isActive ? 'active' : '')}>
+            Kanban Board
+          </NavLink>
+          <NavLink to="/calendar" className={({ isActive }) => (isActive ? 'active' : '')}>
+            Calendar
+          </NavLink>
+          <NavLink to="/scrum-live" className={({ isActive }) => (isActive ? 'active' : '')}>
+            Scrum Live
+          </NavLink>
         </nav>
         <div className="side-footer">
-          <div className="stat-card" style={{ padding: '12px', background: 'rgba(255,255,255,0.5)' }}>
+          <NavLink to={accessToken ? "/profile" : "/login"} className="stat-card" style={{ display: 'block', padding: '12px', background: 'rgba(255,255,255,0.5)', textDecoration: 'none', color: 'inherit' }}>
             <p className="subtle" style={{ fontSize: '11px', marginBottom: '4px' }}>Session Status</p>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: accessToken ? '#4caf50' : '#f44336' }}></div>
               <span style={{ fontSize: '12px', fontWeight: 600 }}>{accessToken ? 'Authenticated' : 'Guest'}</span>
             </div>
-          </div>
+          </NavLink>
           
           <div className="profile-row" style={{ marginTop: '12px', marginBottom: '8px' }}>
             <div className="avatar" style={{ width: '28px', height: '28px', borderRadius: '8px', fontSize: '11px' }}>

@@ -287,3 +287,62 @@ export const mockSeniorMessages = [
     created_at: '2026-04-24T08:00:00Z',
   },
 ];
+
+export const mockBoards = [
+  {
+    id: 1,
+    name: 'Pinecone Product Development',
+    description: 'Main board for Pinecone UI and Agent integration.',
+    created_at: '2026-04-01T10:00:00Z',
+  },
+];
+
+export const mockColumns = [
+  { id: 1, board: 1, name: 'To Do', position: 1 },
+  { id: 2, board: 1, name: 'In Progress', position: 2 },
+  { id: 3, board: 1, name: 'Done', position: 3 },
+];
+
+export const mockCards = [
+  {
+    id: 1,
+    column: 1,
+    title: 'Implement Auth Guard',
+    description: 'Add JWT verification to all sensitive endpoints.',
+    position: 1,
+    due_date: '2026-05-10T17:00:00Z',
+    priority: 'high',
+    created_at: '2026-04-05T09:00:00Z',
+    updated_at: '2026-04-05T09:00:00Z',
+    is_overdue: false,
+    labels: [{ id: 1, name: 'Security', color: '#d73a4a' }],
+  },
+  {
+    id: 2,
+    column: 2,
+    title: 'UI Refactor: Dashboard',
+    description: 'Clean up the main dashboard layout and add micro-animations.',
+    position: 1,
+    due_date: '2026-05-12T12:00:00Z',
+    priority: 'medium',
+    created_at: '2026-04-06T11:00:00Z',
+    updated_at: '2026-04-20T14:00:00Z',
+    is_overdue: false,
+    labels: [{ id: 2, name: 'Frontend', color: '#0075ca' }],
+  },
+];
+
+export const mockLabels = [
+  { id: 1, board: 1, name: 'Security', color: '#d73a4a' },
+  { id: 2, board: 1, name: 'Frontend', color: '#0075ca' },
+  { id: 3, board: 1, name: 'Bug', color: '#cfd3d7' },
+];
+
+export const mockComments = [
+  {
+    id: 1,
+    card: 1,
+    body: 'Started working on the middleware. Checking for edge cases.',
+    created_at: '2026-04-10T09:30:00Z',
+  },
+];

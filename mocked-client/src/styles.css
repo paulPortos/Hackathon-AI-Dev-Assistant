@@ -591,14 +591,13 @@ button {
   border: none;
   width: 100vw;
   height: 100vh;
-  background: transparent;
+  background: rgba(34, 32, 24, 0.45);
+  backdrop-filter: blur(4px);
   display: grid;
   place-items: center;
-  z-index: 30;
-}
-
-.modal-backdrop::backdrop {
-  background: rgba(34, 32, 24, 0.45);
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
 }
 
 .modal {

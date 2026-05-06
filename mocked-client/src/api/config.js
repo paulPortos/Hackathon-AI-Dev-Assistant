@@ -30,7 +30,23 @@ export const ENDPOINTS = {
   },
   USERS: {
     ME: `/users/me/`,
-  }
+  },
+  KANBAN: {
+    BOARDS: `/boards/`,
+    BOARD_DETAIL: (id) => `/boards/${id}/`,
+    BOARD_COLUMNS: (id) => `/boards/${id}/columns/`,
+    COLUMN_DETAIL: (id) => `/columns/${id}/`,
+    COLUMN_REORDER: (id) => `/columns/${id}/reorder/`,
+    COLUMN_CARDS: (id) => `/columns/${id}/cards/`,
+    CARD_DETAIL: (id) => `/cards/${id}/`,
+    CARD_MOVE: (id) => `/cards/${id}/move/`,
+    BOARD_LABELS: (id) => `/boards/${id}/labels/`,
+    CARD_LABELS: (id) => `/cards/${id}/labels/`,
+    CARD_COMMENTS: (id) => `/cards/${id}/comments/`,
+    COMMENT_DETAIL: (id) => `/comments/${id}/`,
+  },
+  CALENDAR: '/calendar/',
+  CALENDAR_EVENTS: '/calendar/events/',
 };
 
 export const getAbsoluteUrl = (path) => `${API_BASE_URL}${path}`;

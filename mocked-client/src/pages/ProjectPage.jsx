@@ -190,6 +190,9 @@ export default function ProjectPage() {
               <button className="button ghost" type="button" onClick={openMeetingModal} style={{ padding: '8px 16px' }}>
                 Meeting settings
               </button>
+              <Link className="button ghost" to="/kanban" style={{ padding: '8px 16px' }}>
+                Kanban board
+              </Link>
               <Link className="button secondary" to={`/senior?projectId=${project.id}`} style={{ padding: '8px 24px' }}>
                 Report to senior
               </Link>

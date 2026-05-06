@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'users',
     'user_descriptions',
     'scrum',
+    'django_filters',
 ]
 
 MIDDLEWARE = [
