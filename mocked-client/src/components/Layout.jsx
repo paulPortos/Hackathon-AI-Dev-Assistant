@@ -1,7 +1,7 @@
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../auth/AuthContext';
-import { GitHubIcon } from './Icons';
+import { GitHubIcon, RobotIcon } from './Icons';
 
 const resolveViewTitle = (pathname) => {
   if (pathname === '/home') return 'Overview';
@@ -30,8 +30,11 @@ export default function Layout() {
   return (
     <div className="app-shell">
       <aside className="side-nav">
-        <div className="brand" style={{ marginBottom: '40px' }}>
-          Visor
+        <div className="brand">
+          <span className="brand-mark">
+            <RobotIcon size={22} />
+          </span>
+          <span>Visor</span>
         </div>
         <nav className="side-links">
           <NavLink to="/home" className={({ isActive }) => (isActive ? 'active' : '')}>

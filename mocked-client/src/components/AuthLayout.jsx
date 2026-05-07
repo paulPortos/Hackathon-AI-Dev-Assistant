@@ -1,11 +1,14 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { GitHubIcon } from './Icons';
+import { GitHubIcon, RobotIcon } from './Icons';
 
 export default function AuthLayout() {
   return (
     <div className="auth-shell">
       <header className="auth-header" style={{ borderBottom: '1px solid rgba(0,0,0,0.05)', background: 'rgba(255,255,255,0.5)', backdropFilter: 'blur(10px)' }}>
         <div className="brand">
+          <span className="brand-mark">
+            <RobotIcon size={22} />
+          </span>
           <span style={{ color: 'var(--accent-500)' }}>Visor</span>
         </div>
         <nav className="auth-links">

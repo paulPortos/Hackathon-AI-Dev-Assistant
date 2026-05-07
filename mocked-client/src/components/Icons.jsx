@@ -16,3 +16,27 @@ export const GitHubIcon = ({ size = 24, color = 'currentColor' }) => (
     <path d="M9 18c-4.51 2-5-2-7-2" />
   </svg>
 );
+
+export const RobotIcon = ({ size = 24, color = 'currentColor' }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    xmlns="http://www.w3.org/2000/svg"
+    aria-hidden="true"
+  >
+    <path d="M12 8V4" />
+    <path d="M8 4h8" />
+    <rect x="5" y="8" width="14" height="11" rx="3" />
+    <path d="M3 13h2" />
+    <path d="M19 13h2" />
+    <path d="M9 13h.01" />
+    <path d="M15 13h.01" />
+    <path d="M10 17h4" />
+  </svg>
+);
