@@ -520,7 +520,7 @@ export default function SeniorPage() {
   return (
     <div className="senior-layout" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: '32px', height: 'calc(100vh - 180px)' }}>
       {/* LEFT COLUMN: CHAT AREA */}
-      <section style={{ display: 'flex', flexDirection: 'column', background: 'var(--surface)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(0,0,0,0.05)', overflow: 'hidden' }}>
+      <section className="senior-chat-panel" style={{ display: 'flex', flexDirection: 'column', background: 'var(--surface)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(0,0,0,0.05)', overflow: 'hidden' }}>
         <div className="chat-header" style={{ padding: '20px 24px', borderBottom: '1px solid rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <h3 style={{ margin: 0 }}>Senior AI Assistant</h3>

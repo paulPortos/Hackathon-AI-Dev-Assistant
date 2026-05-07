@@ -900,21 +900,40 @@ button {
 /* Senior Layout & Chat */
 .senior-layout {
   animation: fadeIn 0.4s ease-out;
+  min-width: 0;
+}
+
+.senior-chat-panel {
+  min-width: 0;
+  min-height: 0;
+}
+
+.chat-messages {
+  min-height: 0;
+  overflow-x: hidden;
+  scroll-padding-bottom: 32px;
+}
+
+.chat-input-area {
+  flex: 0 0 auto;
 }
 
 .message-bubble {
   display: flex;
   gap: 16px;
-  max-width: 85%;
+  max-width: min(100%, 920px);
+  min-width: 0;
 }
 
 .message-bubble.assistant {
   align-self: flex-start;
+  width: min(100%, 920px);
 }
 
 .message-bubble.user {
   align-self: flex-end;
   flex-direction: row-reverse;
+  max-width: min(85%, 760px);
 }
 
 .message-bubble .avatar {
@@ -940,6 +959,22 @@ button {
   border-radius: 18px;
   font-size: 14px;
   line-height: 1.5;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.message-bubble .content {
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.message-bubble .text > * {
+  max-width: 100%;
 }
 
 .message-bubble.assistant .text {
@@ -1057,7 +1092,7 @@ button {
 .thinking-bubble { 
   animation: fadeIn 0.2s ease forwards; 
   align-self: flex-start;
-  max-width: 80%;
+  max-width: min(100%, 760px);
   display: flex;
   gap: 12px;
 }
@@ -1070,7 +1105,8 @@ button {
   background: white;
   border-radius: var(--radius-md);
   border: 1px solid rgba(0,0,0,0.06);
-  min-width: 200px;
+  min-width: 0;
+  max-width: 100%;
   box-shadow: var(--shadow-sm);
 }
 
@@ -1132,18 +1168,23 @@ button {
 /* Markdown Content Styles */
 .message-bubble .text table {
   border-collapse: collapse;
-  width: 100%;
+  display: block;
+  width: max-content;
+  min-width: min(640px, 100%);
+  max-width: 100%;
   margin: 12px 0;
   font-size: 13px;
   background: white;
   border-radius: 8px;
-  overflow: hidden;
+  overflow-x: auto;
 }
 .message-bubble .text th,
 .message-bubble .text td {
   border: 1px solid rgba(0, 0, 0, 0.08);
   padding: 10px 12px;
   text-align: left;
+  min-width: 112px;
+  vertical-align: top;
 }
 .message-bubble .text th {
   background: rgba(0, 0, 0, 0.04);
@@ -1166,6 +1207,7 @@ button {
   border-radius: 4px;
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
   font-size: 0.9em;
+  overflow-wrap: anywhere;
 }
 .message-bubble .text pre {
   background: #1e1e1e;
@@ -1173,6 +1215,7 @@ button {
   padding: 16px;
   border-radius: 12px;
   overflow-x: auto;
+  max-width: 100%;
   margin: 16px 0;
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
@@ -1197,4 +1240,56 @@ button {
 }
 .message-bubble .text p:last-child {
   margin-bottom: 0;
+}
+
+@media (max-width: 1100px) {
+  .senior-layout {
+    grid-template-columns: 1fr !important;
+    height: auto !important;
+    min-height: calc(100vh - 180px);
+  }
+
+  .senior-layout > aside {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  }
+
+  .senior-chat-panel {
+    min-height: 72vh;
+  }
+}
+
+@media (max-width: 700px) {
+  .chat-messages {
+    padding: 16px !important;
+    gap: 14px !important;
+  }
+
+  .chat-input-area {
+    padding: 16px !important;
+  }
+
+  .message-bubble,
+  .message-bubble.assistant,
+  .message-bubble.user,
+  .thinking-bubble {
+    max-width: 100%;
+    width: 100%;
+    gap: 10px;
+  }
+
+  .message-bubble .avatar {
+    width: 28px;
+    height: 28px;
+    font-size: 11px;
+  }
+
+  .message-bubble .text {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+
+  .message-bubble .text table {
+    min-width: 560px;
+  }
 }
