@@ -222,6 +222,11 @@ REST_FRAMEWORK = {
     'EXCEPTION_HANDLER': 'config.exception_handlers.friendly_exception_handler.friendly_exception_handler',
 }
 
+if not DEBUG:
+    REST_FRAMEWORK['DEFAULT_RENDERER_CLASSES'] = (
+        'rest_framework.renderers.JSONRenderer',
+    )
+
 # Channels
 if REDIS_URL:
     CHANNEL_LAYERS = {

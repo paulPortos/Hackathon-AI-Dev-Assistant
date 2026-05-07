@@ -3,6 +3,7 @@
 
 import argparse
 import os
+import socket
 import sys
 import time
 from urllib.error import HTTPError, URLError
@@ -10,7 +11,7 @@ from urllib.request import Request, urlopen
 
 
 DEFAULT_INTERVAL_SECONDS = 15
-DEFAULT_TIMEOUT_SECONDS = 10
+DEFAULT_TIMEOUT_SECONDS = 60
 
 
 def env_int(name, default):
@@ -36,7 +37,11 @@ def ping(url, timeout):
         return exc.code, str(exc)
     except URLError as exc:
         return 0, str(exc.reason)
+    except socket.timeout as exc:
+        return 0, str(exc)
     except TimeoutError as exc:
+        return 0, str(exc)
+    except OSError as exc:
         return 0, str(exc)
 
 
