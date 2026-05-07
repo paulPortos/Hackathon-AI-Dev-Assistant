@@ -142,6 +142,9 @@ const timeOptions = Array.from({ length: 29 }, (_, index) => {
 const isAssignedToUser = (task, user) =>
   Boolean(task?.assigned_to_user_id && user?.id && task.assigned_to_user_id === user.id);
 
+const isProjectOwnerMember = (member, project) =>
+  Boolean(member?.user_id && project?.creator_id && member.user_id === project.creator_id);
+
 export default function ProjectPage() {
   const { projectId } = useParams();
   const { user } = useAuth();
@@ -482,13 +485,32 @@ export default function ProjectPage() {
     <div className="grid">
       {status === 'error' ? <p className="subtle">{error}</p> : null}
 
-      <section className="grid two" style={{ alignItems: 'stretch' }}>
-        <SectionCard
-          title="Project Workspace"
-          actions={project ? (
-            <>
+      <section className="project-top-grid">
+        <div className="project-command-card">
+          <div className="project-command-main">
+            <div className="project-repo-mark">
+              {(project?.github_full_name || 'P').split('/').pop()?.[0]?.toUpperCase() || 'P'}
+            </div>
+            <div>
+              <p className="meta-label">Project Workspace</p>
+              <h1>{project?.github_full_name || 'Loading project...'}</h1>
+              <p>
+                Review vulnerabilities, update tasks, manage contributors, and keep
+                project context ready for Visor.
+              </p>
+              <div className="tag-row">
+                <span className="pill">{project?.github_primary_language || 'No language'}</span>
+                <span className="pill muted-pill">{project?.github_visibility || 'visibility unknown'}</span>
+                {project?.github_default_branch ? (
+                  <span className="pill muted-pill">{project.github_default_branch}</span>
+                ) : null}
+              </div>
+            </div>
+          </div>
+          {project ? (
+            <div className="project-command-actions">
               <Link className="button ghost compact" to="/projects">
-                Back to projects
+                Back
               </Link>
               <button
                 className="button ghost compact"
@@ -497,42 +519,23 @@ export default function ProjectPage() {
                 disabled={!isOwner}
                 title={isOwner ? 'Update meeting settings' : 'Only the project creator can update meetings'}
               >
-                Meeting settings
+                Meetings
               </button>
               <Link className="button ghost compact" to="/kanban">
-                Kanban board
+                Kanban
               </Link>
+              {project.github_html_url ? (
+                <a className="button ghost compact" href={project.github_html_url} target="_blank" rel="noreferrer">
+                  <GitHubIcon size={14} />
+                  GitHub
+                </a>
+              ) : null}
               <Link className="button secondary compact" to={`/senior?projectId=${project.id}`}>
                 Report to senior
               </Link>
-            </>
-          ) : null}
-        >
-          <p className="subtle" style={{ marginBottom: '16px' }}>
-            Review vulnerabilities, update tasks, manage contributors, and keep
-            project context ready for Visor.
-          </p>
-
-          {project && (
-            <div style={{ marginBottom: '20px' }}>
-              <h2 style={{ margin: '0 0 4px', fontSize: '18px' }}>{project.github_full_name}</h2>
-              <div className="inline-actions" style={{ gap: '8px' }}>
-                <span className="pill" style={{ background: 'var(--accent-100)', color: 'var(--accent-700)' }}>
-                  {project.github_primary_language || 'No language'}
-                </span>
-                <span className="pill" style={{ background: 'rgba(0,0,0,0.05)' }}>
-                  {project.github_visibility}
-                </span>
-                {project.github_html_url ? (
-                  <a className="button ghost compact" href={project.github_html_url} target="_blank" rel="noreferrer">
-                    <GitHubIcon size={14} />
-                    GitHub
-                  </a>
-                ) : null}
-              </div>
             </div>
-          )}
-        </SectionCard>
+          ) : null}
+        </div>
 
         <SectionCard
           title="Project Context"
@@ -653,50 +656,55 @@ export default function ProjectPage() {
         >
           {memberError ? <p className="subtle">{memberError}</p> : null}
           <div className="member-grid">
-            {members.map((member) => (
-              <article key={member.id} className="member-card">
-                <div className="member-card-header">
-                  <div className="avatar small">{member.username?.[0]?.toUpperCase() || 'U'}</div>
-                  <div>
-                    <strong>{member.name || member.username}</strong>
-                    <p className="subtle">@{member.username}</p>
+            {members.map((member) => {
+              const isOwnerMember = isProjectOwnerMember(member, project);
+              return (
+                <article key={member.id} className={`member-card ${isOwnerMember ? 'owner-member-card' : ''}`}>
+                  <div className="member-card-header">
+                    <div className="avatar small">{member.username?.[0]?.toUpperCase() || 'U'}</div>
+                    <div>
+                      <strong>{member.name || member.username}</strong>
+                      <p className="subtle">@{member.username}</p>
+                    </div>
                   </div>
-                </div>
-                <div className="tag-row">
-                  <span className="tag">{member.display_role}</span>
-                  {(member.roles || []).map((role) => (
-                    <span key={role} className="tag">{role}</span>
-                  ))}
-                </div>
-                <div className="inline-actions">
-                  <button
-                    className="button ghost compact"
-                    type="button"
-                    onClick={() => openProfileModal(member.user_id)}
-                  >
-                    View profile
-                  </button>
-                  {isOwner ? (
-                    <>
-                      <button
-                        className="button ghost compact"
-                        type="button"
-                        onClick={() => openMemberModal(member)}
-                      >
-                        Manage
-                      </button>
-                      <button
-                        className="button ghost compact danger"
-                        type="button"
-                        onClick={() => handleRemoveMember(member)}
-                      >
-                        Remove
-                      </button>
-                    </>
-                  ) : null}
-                </div>
-              </article>
-            ))}
+                  <div className="tag-row">
+                    <span className="tag">{member.display_role}</span>
+                    {(member.roles || []).map((role) => (
+                      <span key={role} className="tag">{role}</span>
+                    ))}
+                  </div>
+                  <div className="inline-actions">
+                    <button
+                      className="button ghost compact"
+                      type="button"
+                      onClick={() => openProfileModal(member.user_id)}
+                    >
+                      View profile
+                    </button>
+                    {isOwner ? (
+                      <>
+                        <button
+                          className="button ghost compact"
+                          type="button"
+                          onClick={() => openMemberModal(member)}
+                        >
+                          Manage
+                        </button>
+                        {!isOwnerMember ? (
+                          <button
+                            className="button ghost compact danger"
+                            type="button"
+                            onClick={() => handleRemoveMember(member)}
+                          >
+                            Remove
+                          </button>
+                        ) : null}
+                      </>
+                    ) : null}
+                  </div>
+                </article>
+              );
+            })}
             {members.length === 0 && <p className="subtle">No members in this project yet.</p>}
           </div>
         </SectionCard>
@@ -1073,13 +1081,15 @@ export default function ProjectPage() {
               <button className="button" type="button" onClick={handleMemberSave}>
                 Save member
               </button>
-              <button
-                className="button ghost danger"
-                type="button"
-                onClick={() => handleRemoveMember(selectedMember)}
-              >
-                Remove member
-              </button>
+              {!isProjectOwnerMember(selectedMember, project) ? (
+                <button
+                  className="button ghost danger"
+                  type="button"
+                  onClick={() => handleRemoveMember(selectedMember)}
+                >
+                  Remove member
+                </button>
+              ) : null}
             </div>
             {memberError ? <p className="subtle">{memberError}</p> : null}
           </div>

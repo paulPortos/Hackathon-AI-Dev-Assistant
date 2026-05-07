@@ -524,7 +524,7 @@ export default function SeniorPage() {
         <div className="chat-header" style={{ padding: '20px 24px', borderBottom: '1px solid rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <h3 style={{ margin: 0 }}>Senior AI Assistant</h3>
-            <p className="subtle" style={{ margin: 0, fontSize: '12px' }}>Choice-driven development partner</p>
+            <p className="subtle" style={{ margin: 0, fontSize: '12px' }}>Evidence-based AI code supervision agent</p>
           </div>
           {error && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>

@@ -3,6 +3,20 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { GitHubIcon } from './Icons';
 
+const resolveViewTitle = (pathname) => {
+  if (pathname === '/home') return 'Overview';
+  if (pathname === '/projects') return 'Workspace';
+  if (pathname.startsWith('/projects/')) return 'Project Workspace';
+  if (pathname === '/senior') return 'Senior AI';
+  if (pathname === '/profile') return 'Profile';
+  if (pathname === '/kanban') return 'Kanban Board';
+  if (pathname === '/calendar') return 'Calendar';
+  if (pathname === '/scrum-live') return 'Scrum Live';
+
+  const fallback = pathname.replace(/^\/+/, '') || 'Visor';
+  return fallback.charAt(0).toUpperCase() + fallback.slice(1);
+};
+
 export default function Layout() {
   const { user, accessToken, logout } = useAuth();
   const location = useLocation();
@@ -80,7 +94,7 @@ export default function Layout() {
           <div>
             <p className="subtle">Current View</p>
             <strong style={{ fontSize: '18px' }}>
-              {location.pathname.substring(1).charAt(0).toUpperCase() + location.pathname.substring(2)}
+              {resolveViewTitle(location.pathname)}
             </strong>
           </div>
           <div className="header-actions">
