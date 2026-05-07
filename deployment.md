@@ -249,6 +249,8 @@ Leave `VITE_WS_BASE_URL` blank unless your WebSocket server is on a different do
 
 Vite reads `VITE_` variables during the build. After changing these in Vercel, redeploy the frontend.
 
+This repo includes `mocked-client/vercel.json` so Vercel rewrites direct routes such as `/login`, `/home`, and `/projects/1` to `index.html`. This is required for React Router and for the GitHub callback redirect to `/login?access=...`.
+
 ## 7. Update Backend URLs After Vercel Deploys
 
 After Vercel gives you the frontend URL, update the Render backend env vars:
