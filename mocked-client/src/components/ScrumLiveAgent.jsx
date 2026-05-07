@@ -42,9 +42,11 @@ const ScrumLiveAgent = () => {
   const ws = useRef(null);
   const playbackAudioContext = useRef(null);
   const microphoneAudioContext = useRef(null);
+  const microphoneStream = useRef(null);
   const microphone = useRef(null);
   const workletNode = useRef(null);
   const nextStartTime = useRef(0);
+  const [micError, setMicError] = useState('');
 
   const activeSources = useRef([]);
   const turnBuffer = useRef({ text: '', audioChunks: 0 });
@@ -232,17 +234,27 @@ const ScrumLiveAgent = () => {
   };
 
   const disconnect = () => {
+    stopRecording();
     if (ws.current) ws.current.close();
   };
 
   const startRecording = async () => {
     stopAudio();
+    stopRecording();
+    setMicError('');
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setMicError('Microphone access is not available in this browser.');
+      return;
+    }
+
     try {
       microphoneAudioContext.current = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      microphoneStream.current = stream;
       microphone.current = microphoneAudioContext.current.createMediaStreamSource(stream);
 
-      await microphoneAudioContext.current.audioWorklet.addModule('/src/components/AudioWorkletProcessor.js');
+      await microphoneAudioContext.current.audioWorklet.addModule('/audio-worklet-processor.js');
       workletNode.current = new AudioWorkletNode(microphoneAudioContext.current, 'audio-worklet-processor');
 
       workletNode.current.port.onmessage = (event) => {
@@ -260,13 +272,22 @@ const ScrumLiveAgent = () => {
       console.log('Recording started');
     } catch (err) {
       console.error('Error accessing microphone:', err);
+      stopRecording();
+      setMicError('Unable to start the microphone. Please allow mic access and try again.');
     }
   };
 
   const stopRecording = () => {
     if (workletNode.current) { workletNode.current.disconnect(); workletNode.current = null; }
     if (microphone.current) { microphone.current.disconnect(); microphone.current = null; }
-    if (microphoneAudioContext.current) { microphoneAudioContext.current.close(); microphoneAudioContext.current = null; }
+    if (microphoneStream.current) {
+      microphoneStream.current.getTracks().forEach(track => track.stop());
+      microphoneStream.current = null;
+    }
+    if (microphoneAudioContext.current) {
+      microphoneAudioContext.current.close().catch(() => {});
+      microphoneAudioContext.current = null;
+    }
     nextStartTime.current = 0;
   };
 
@@ -509,6 +530,21 @@ const ScrumLiveAgent = () => {
               )}
             </div>
           </div>
+
+          {micError && (
+            <div style={{
+              marginBottom: '16px',
+              padding: '12px 14px',
+              borderRadius: '14px',
+              background: 'rgba(255, 82, 82, 0.1)',
+              color: '#b43a3a',
+              border: '1px solid rgba(255, 82, 82, 0.22)',
+              fontSize: '14px',
+              fontWeight: 600
+            }}>
+              {micError}
+            </div>
+          )}
 
           <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #f8f8f8', borderRadius: '20px', padding: '25px', marginBottom: '25px', background: '#fafafa', display: 'flex', flexDirection: 'column', gap: '20px' }}>
             {transcripts.map((t, i) => (
