@@ -145,6 +145,34 @@ const isAssignedToUser = (task, user) =>
 const isProjectOwnerMember = (member, project) =>
   Boolean(member?.user_id && project?.creator_id && member.user_id === project.creator_id);
 
+const humanizeValue = (value) =>
+  String(value || '')
+    .split('_')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+
+const formatLogTime = (value) => {
+  if (!value) return 'Unknown time';
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(value));
+};
+
+const resolveLogActor = (log) =>
+  log.actor_name || log.actor_username || log.actor_agent || 'System';
+
+const resolveChangedFields = (log) => {
+  const fields = new Set([
+    ...Object.keys(log.before || {}),
+    ...Object.keys(log.after || {}),
+  ]);
+  return Array.from(fields).slice(0, 4);
+};
+
 export default function ProjectPage() {
   const { projectId } = useParams();
   const { user } = useAuth();
@@ -152,8 +180,10 @@ export default function ProjectPage() {
   const [members, setMembers] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [vulnerabilities, setVulnerabilities] = useState([]);
+  const [auditLogs, setAuditLogs] = useState([]);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
+  const [auditLogError, setAuditLogError] = useState('');
 
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -194,21 +224,34 @@ export default function ProjectPage() {
 
   const isOwner = Boolean(project?.creator_id && user?.id && project.creator_id === user.id);
 
+  const loadAuditLogs = async () => {
+    setAuditLogError('');
+    try {
+      const payload = await api.listProjectAuditLogs(projectId);
+      setAuditLogs(normalizeList(payload));
+    } catch (err) {
+      setAuditLogs([]);
+      setAuditLogError(err.message);
+    }
+  };
+
   const loadProject = async () => {
     setStatus('loading');
     setError('');
     try {
-      const [projectPayload, taskPayload, vulnerabilityPayload, memberPayload] =
+      const [projectPayload, taskPayload, vulnerabilityPayload, memberPayload, auditLogPayload] =
         await Promise.all([
           api.getProject(projectId),
           api.listProjectTasks(projectId),
           api.listProjectVulnerabilities(projectId),
           api.listProjectMembers(projectId),
+          api.listProjectAuditLogs(projectId),
         ]);
       setProject(projectPayload);
       setTasks(normalizeList(taskPayload));
       setVulnerabilities(normalizeList(vulnerabilityPayload));
       setMembers(normalizeList(memberPayload));
+      setAuditLogs(normalizeList(auditLogPayload));
       setStatus('ready');
     } catch (err) {
       setStatus('error');
@@ -359,6 +402,7 @@ export default function ProjectPage() {
         : { status: taskDraft.status };
       const updatedTask = await api.updateProjectTask(projectId, selectedTask.id, payload);
       setTasks((prev) => prev.map((task) => (task.id === updatedTask.id ? updatedTask : task)));
+      loadAuditLogs();
       setTaskModalOpen(false);
       setSelectedTask(null);
       setTaskDraft(null);
@@ -377,6 +421,7 @@ export default function ProjectPage() {
     try {
       await api.deleteProjectVulnerability(projectId, vulnerability.id);
       setVulnerabilities((prev) => prev.filter((item) => item.id !== vulnerability.id));
+      loadAuditLogs();
     } catch (err) {
       setVulnerabilityError(err.message);
     }
@@ -418,6 +463,7 @@ export default function ProjectPage() {
     try {
       await api.removeProjectMember(projectId, member.id);
       setMembers((prev) => prev.filter((item) => item.id !== member.id));
+      loadAuditLogs();
       if (selectedMember?.id === member.id) {
         setMemberModalOpen(false);
         setSelectedMember(null);
@@ -706,6 +752,54 @@ export default function ProjectPage() {
               );
             })}
             {members.length === 0 && <p className="subtle">No members in this project yet.</p>}
+          </div>
+        </SectionCard>
+      </section>
+
+      <section className="grid">
+        <SectionCard
+          title="Project Logs"
+          eyebrow="Audit trail"
+          actions={
+            <button className="button ghost compact" type="button" onClick={loadAuditLogs}>
+              Refresh logs
+            </button>
+          }
+        >
+          {auditLogError ? <p className="subtle">{auditLogError}</p> : null}
+          <div className="audit-log-list">
+            {auditLogs.map((log) => {
+              const changedFields = resolveChangedFields(log);
+              return (
+                <article key={log.id} className="audit-log-item">
+                  <div className="audit-log-marker" />
+                  <div className="audit-log-body">
+                    <div className="audit-log-header">
+                      <strong>{log.summary || humanizeValue(log.event_type)}</strong>
+                      <span className="subtle">{formatLogTime(log.created_at)}</span>
+                    </div>
+                    <div className="tag-row">
+                      <span className="tag">{humanizeValue(log.event_type)}</span>
+                      <span className="tag">{humanizeValue(log.target_type)}</span>
+                      {log.target_id ? <span className="tag">#{log.target_id}</span> : null}
+                    </div>
+                    <p className="subtle">
+                      {resolveLogActor(log)} performed this action.
+                    </p>
+                    {changedFields.length > 0 ? (
+                      <div className="audit-field-row">
+                        {changedFields.map((field) => (
+                          <span key={field}>{humanizeValue(field)}</span>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                </article>
+              );
+            })}
+            {auditLogs.length === 0 ? (
+              <p className="subtle">No project activity has been logged yet.</p>
+            ) : null}
           </div>
         </SectionCard>
       </section>
