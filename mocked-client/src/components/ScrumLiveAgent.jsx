@@ -12,6 +12,7 @@ const ScrumLiveAgent = () => {
   const [currentSessionId, setCurrentSessionId] = useState(null);
   
   const [connected, setConnected] = useState(false);
+  const [connecting, setConnecting] = useState(false);
   const [transcripts, setTranscripts] = useState([]);
   const [inputText, setInputText] = useState('');
   const [jsonLogs, setJsonLogs] = useState([]);
@@ -46,10 +47,17 @@ const ScrumLiveAgent = () => {
   const microphone = useRef(null);
   const workletNode = useRef(null);
   const nextStartTime = useRef(0);
+  const transcriptEndRef = useRef(null);
   const [micError, setMicError] = useState('');
+  const [isRecording, setIsRecording] = useState(false);
+  const [micStarting, setMicStarting] = useState(false);
 
   const activeSources = useRef([]);
   const turnBuffer = useRef({ text: '', audioChunks: 0 });
+
+  useEffect(() => {
+    transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [transcripts]);
 
   // Fetch initial data
   useEffect(() => {
@@ -167,7 +175,10 @@ const ScrumLiveAgent = () => {
 
   const connect = () => {
     if (!projectId) return alert("Please select a project first");
+    if (connecting || connected) return;
     
+    setConnecting(true);
+    setMicError('');
     nextStartTime.current = 0;
     const sessionPart = currentSessionId ? `${currentSessionId}/` : '';
     const token = localStorage.getItem('mocked-client.access-token');
@@ -176,6 +187,7 @@ const ScrumLiveAgent = () => {
 
     ws.current.onopen = () => {
       setConnected(true);
+      setConnecting(false);
       console.log('Connected to Scrum Live Server');
       // If we didn't have a session ID before, the server created one.
       // We'll need a way to know which one it is if we want to sync the UI.
@@ -211,14 +223,20 @@ const ScrumLiveAgent = () => {
         turnBuffer.current = { text: '', audioChunks: 0 };
       } else if (message.type === 'error') {
         addJsonLog('received', message);
-        console.error('Gemini Error:', message.message);
+        console.error('Scrum Live Error:', message.message);
       } else if (message.type === 'kanban_update') {
         addJsonLog('received', { type: 'kanban_update', message: 'Kanban board modified by agent' });
       }
     };
 
+    ws.current.onerror = () => {
+      setConnecting(false);
+      setMicError('Unable to connect to Scrum Live. Please check the server and try again.');
+    };
+
     ws.current.onclose = () => {
       setConnected(false);
+      setConnecting(false);
       stopRecording();
       stopAudio();
       console.log('Disconnected from Scrum Live Server');
@@ -235,15 +253,20 @@ const ScrumLiveAgent = () => {
 
   const disconnect = () => {
     stopRecording();
+    setConnecting(false);
+    setConnected(false);
     if (ws.current) ws.current.close();
   };
 
   const startRecording = async () => {
+    if (micStarting || isRecording) return;
     stopAudio();
     stopRecording();
     setMicError('');
+    setMicStarting(true);
 
     if (!navigator.mediaDevices?.getUserMedia) {
+      setMicStarting(false);
       setMicError('Microphone access is not available in this browser.');
       return;
     }
@@ -269,15 +292,20 @@ const ScrumLiveAgent = () => {
 
       microphone.current.connect(workletNode.current);
       workletNode.current.connect(microphoneAudioContext.current.destination);
+      setIsRecording(true);
       console.log('Recording started');
     } catch (err) {
       console.error('Error accessing microphone:', err);
       stopRecording();
       setMicError('Unable to start the microphone. Please allow mic access and try again.');
+    } finally {
+      setMicStarting(false);
     }
   };
 
   const stopRecording = () => {
+    setIsRecording(false);
+    setMicStarting(false);
     if (workletNode.current) { workletNode.current.disconnect(); workletNode.current = null; }
     if (microphone.current) { microphone.current.disconnect(); microphone.current = null; }
     if (microphoneStream.current) {
@@ -321,7 +349,7 @@ const ScrumLiveAgent = () => {
   };
 
   const sendText = () => {
-    if (ws.current && inputText.trim()) {
+    if (ws.current && ws.current.readyState === WebSocket.OPEN && inputText.trim()) {
       const msg = { type: 'text', text: inputText };
       ws.current.send(JSON.stringify(msg));
       addJsonLog('sent', msg);
@@ -330,6 +358,21 @@ const ScrumLiveAgent = () => {
     }
   };
 
+  const canSend = connected && ws.current?.readyState === WebSocket.OPEN && inputText.trim().length > 0;
+  const controlButtonBase = {
+    minHeight: '48px',
+    padding: '12px 22px',
+    border: 'none',
+    borderRadius: '14px',
+    cursor: 'pointer',
+    fontWeight: 700,
+    fontSize: '14px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    whiteSpace: 'nowrap'
+  };
 
   return (
     <div style={{ 
@@ -510,20 +553,57 @@ const ScrumLiveAgent = () => {
               {!connected ? (
                 <button 
                   onClick={connect} 
-                  disabled={loading}
-                  style={{ padding: '12px 24px', background: 'var(--sage-700, #4b5a3a)', color: 'white', border: 'none', borderRadius: '14px', cursor: 'pointer', fontWeight: 600, boxShadow: '0 8px 20px rgba(75, 90, 58, 0.2)' }}
+                  disabled={loading || connecting}
+                  className="scrum-control-button"
+                  style={{
+                    ...controlButtonBase,
+                    background: 'var(--sage-700, #4b5a3a)',
+                    color: 'white',
+                    cursor: loading || connecting ? 'not-allowed' : 'pointer',
+                    boxShadow: loading || connecting ? 'none' : '0 8px 20px rgba(75, 90, 58, 0.2)',
+                    opacity: loading || connecting ? 0.68 : 1
+                  }}
                 >
-                  {loading ? 'Preparing...' : 'Connect to Agent'}
+                  {connecting ? 'Connecting...' : loading ? 'Preparing...' : 'Connect to Agent'}
                 </button>
               ) : (
                 <>
-                  <button onClick={startRecording} style={{ padding: '12px 24px', background: 'var(--accent-500, #c57b3f)', color: 'white', border: 'none', borderRadius: '14px', cursor: 'pointer', fontWeight: 600, boxShadow: '0 8px 20px rgba(197, 123, 63, 0.2)' }}>
-                    🎤 Start Mic
+                  <button
+                    onClick={startRecording}
+                    disabled={micStarting || isRecording}
+                    className={`scrum-control-button ${isRecording ? 'is-listening' : ''}`}
+                    style={{
+                      ...controlButtonBase,
+                      background: isRecording ? 'var(--sage-700, #4b5a3a)' : 'var(--accent-500, #c57b3f)',
+                      color: 'white',
+                      cursor: micStarting || isRecording ? 'default' : 'pointer',
+                      boxShadow: isRecording ? '0 8px 22px rgba(75, 90, 58, 0.24)' : '0 8px 20px rgba(197, 123, 63, 0.2)',
+                      opacity: micStarting ? 0.78 : 1
+                    }}
+                  >
+                    {isRecording && <span className="scrum-live-dot" aria-hidden="true" />}
+                    {micStarting ? 'Starting mic...' : isRecording ? 'Listening' : 'Start Mic'}
                   </button>
-                  <button onClick={stopRecording} style={{ padding: '12px 24px', background: '#f0f0f0', color: 'var(--ink-700)', border: 'none', borderRadius: '14px', cursor: 'pointer', fontWeight: 600 }}>
-                    ⏹️ Stop
+                  <button
+                    onClick={stopRecording}
+                    disabled={!isRecording && !micStarting}
+                    className="scrum-control-button"
+                    style={{
+                      ...controlButtonBase,
+                      background: isRecording || micStarting ? '#f0f0f0' : '#f7f6f2',
+                      color: isRecording || micStarting ? 'var(--ink-700)' : 'var(--ink-500)',
+                      cursor: isRecording || micStarting ? 'pointer' : 'not-allowed',
+                      boxShadow: isRecording || micStarting ? '0 6px 14px rgba(31, 36, 29, 0.08)' : 'none',
+                      opacity: isRecording || micStarting ? 1 : 0.56
+                    }}
+                  >
+                    Stop mic
                   </button>
-                  <button onClick={disconnect} style={{ padding: '12px 24px', background: 'rgba(255, 82, 82, 0.1)', color: '#ff5252', border: 'none', borderRadius: '14px', cursor: 'pointer', fontWeight: 600 }}>
+                  <button
+                    onClick={disconnect}
+                    className="scrum-control-button"
+                    style={{ ...controlButtonBase, background: 'rgba(255, 82, 82, 0.1)', color: '#ff5252' }}
+                  >
                     Disconnect
                   </button>
                 </>
@@ -546,13 +626,13 @@ const ScrumLiveAgent = () => {
             </div>
           )}
 
-          <div style={{ flex: 1, overflowY: 'auto', border: '1px solid #f8f8f8', borderRadius: '20px', padding: '25px', marginBottom: '25px', background: '#fafafa', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div className="scrum-transcript-panel" style={{ flex: 1, overflowY: 'auto', border: '1px solid #f8f8f8', borderRadius: '20px', padding: '25px', marginBottom: '25px', background: '#fafafa', display: 'flex', flexDirection: 'column', gap: '20px' }}>
             {transcripts.map((t, i) => (
               <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: t.source === 'user' ? 'flex-end' : 'flex-start', animation: 'fadeIn 0.3s ease-out' }}>
                 <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--ink-500)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '1px', marginLeft: t.source === 'user' ? 0 : '12px', marginRight: t.source === 'user' ? '12px' : 0 }}>
                   {t.source === 'user' ? 'Collaborator' : 'Scrum Master'}
                 </div>
-                <div style={{ 
+                <div className="scrum-message-text" style={{
                   maxWidth: '75%', 
                   padding: '16px 20px', 
                   borderRadius: '20px', 
@@ -576,22 +656,46 @@ const ScrumLiveAgent = () => {
                  <div style={{ fontSize: '16px', fontWeight: 500 }}>Connection established. Waiting for your input.</div>
               </div>
             )}
+            <div ref={transcriptEndRef} />
           </div>
 
-          <div style={{ display: 'flex', gap: '15px' }}>
+          <div className="scrum-composer" style={{ display: 'flex', gap: '15px' }}>
             <input 
               type="text" 
               value={inputText} 
               onChange={(e) => setInputText(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && sendText()}
-              placeholder="Collaborate with your AI Scrum Master..."
-              style={{ flex: 1, padding: '18px 25px', borderRadius: '18px', border: '1px solid #eee', outline: 'none', fontSize: '16px', background: '#fdfdfd', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)' }}
+              onKeyDown={(e) => e.key === 'Enter' && sendText()}
+              disabled={!connected}
+              placeholder={connected ? 'Collaborate with your AI Scrum Master...' : 'Connect to the agent first...'}
+              style={{
+                flex: 1,
+                minWidth: 0,
+                padding: '18px 25px',
+                borderRadius: '18px',
+                border: '1px solid #eee',
+                outline: 'none',
+                fontSize: '16px',
+                background: connected ? '#fdfdfd' : '#f4f1e9',
+                boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)',
+                color: connected ? 'var(--ink-900)' : 'var(--ink-500)'
+              }}
             />
             <button 
               onClick={sendText} 
-              style={{ padding: '0 35px', background: 'var(--sage-700, #4b5a3a)', color: 'white', border: 'none', borderRadius: '18px', cursor: 'pointer', fontWeight: 700, boxShadow: '0 8px 20px rgba(75, 90, 58, 0.2)', transition: 'all 0.2s' }}
-              onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
-              onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+              disabled={!canSend}
+              className="scrum-control-button"
+              style={{
+                padding: '0 35px',
+                minHeight: '56px',
+                background: 'var(--sage-700, #4b5a3a)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '18px',
+                cursor: canSend ? 'pointer' : 'not-allowed',
+                fontWeight: 700,
+                boxShadow: canSend ? '0 8px 20px rgba(75, 90, 58, 0.2)' : 'none',
+                opacity: canSend ? 1 : 0.55
+              }}
             >
               Send
             </button>

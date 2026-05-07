@@ -1138,6 +1138,66 @@ button {
   to { opacity: 1; transform: translateY(0); }
 }
 
+.scrum-control-button {
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    filter 0.15s ease,
+    opacity 0.15s ease;
+  user-select: none;
+}
+
+.scrum-control-button:not(:disabled):hover {
+  filter: brightness(1.03);
+  transform: translateY(-1px);
+}
+
+.scrum-control-button:not(:disabled):active {
+  filter: brightness(0.98);
+  transform: translateY(1px) scale(0.98);
+}
+
+.scrum-control-button:disabled {
+  pointer-events: auto;
+}
+
+.scrum-control-button.is-listening {
+  box-shadow:
+    0 8px 22px rgba(75, 90, 58, 0.24),
+    0 0 0 4px rgba(75, 90, 58, 0.12);
+}
+
+.scrum-live-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: #d9f99d;
+  box-shadow: 0 0 0 0 rgba(217, 249, 157, 0.72);
+  animation: scrum-live-pulse 1.3s ease-out infinite;
+}
+
+.scrum-transcript-panel {
+  min-height: 0;
+  scroll-padding-bottom: 24px;
+}
+
+.scrum-message-text {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+@keyframes scrum-live-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(217, 249, 157, 0.72);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(217, 249, 157, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(217, 249, 157, 0);
+  }
+}
+
 /* ── Thinking Bubble ─────────────────────────────── */
 @keyframes thinking-dot {
   0%, 80%, 100% { transform: translateY(0); opacity: 0.3; }
@@ -1315,6 +1375,18 @@ button {
 }
 
 @media (max-width: 700px) {
+  .scrum-composer {
+    flex-direction: column;
+  }
+
+  .scrum-composer .scrum-control-button {
+    width: 100%;
+  }
+
+  .scrum-message-text {
+    max-width: 100% !important;
+  }
+
   .chat-messages {
     padding: 16px !important;
     gap: 14px !important;
