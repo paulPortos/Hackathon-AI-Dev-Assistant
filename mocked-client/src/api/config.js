@@ -1,5 +1,10 @@
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-export const API_VERSION = 'v1';
+const trimTrailingSlash = (value) => String(value || '').replace(/\/+$/, '');
+const trimSlashes = (value) => String(value || '').replace(/^\/+|\/+$/g, '');
+
+export const API_BASE_URL = trimTrailingSlash(
+  import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000',
+);
+export const API_VERSION = trimSlashes(import.meta.env.VITE_API_VERSION || 'v1');
 export const API_ROOT = `${API_BASE_URL}/api/${API_VERSION}`;
 
 const resolveWsBaseUrl = (baseUrl) => {
@@ -12,7 +17,9 @@ const resolveWsBaseUrl = (baseUrl) => {
   return baseUrl;
 };
 
-export const WS_BASE_URL = resolveWsBaseUrl(API_BASE_URL);
+export const WS_BASE_URL = trimTrailingSlash(
+  import.meta.env.VITE_WS_BASE_URL || resolveWsBaseUrl(API_BASE_URL),
+);
 export const WS_ROOT = `${WS_BASE_URL}/ws`;
 
 export const ENDPOINTS = {
