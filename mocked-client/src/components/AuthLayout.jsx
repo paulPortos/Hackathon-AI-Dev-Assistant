@@ -6,7 +6,7 @@ export default function AuthLayout() {
     <div className="auth-shell">
       <header className="auth-header" style={{ borderBottom: '1px solid rgba(0,0,0,0.05)', background: 'rgba(255,255,255,0.5)', backdropFilter: 'blur(10px)' }}>
         <div className="brand">
-          <span style={{ color: 'var(--accent-500)' }}>Khaki</span> Console
+          <span style={{ color: 'var(--accent-500)' }}>Visor</span>
         </div>
         <nav className="auth-links">
           <NavLink to="/login" className={({ isActive }) => (isActive ? 'active' : '')}>
@@ -26,7 +26,7 @@ export default function AuthLayout() {
         <Outlet />
       </main>
       <footer className="footer" style={{ background: 'transparent' }}>
-        <p className="subtle">© 2026 Khaki Console • Built with Security in Mind</p>
+        <p className="subtle">© 2026 Visor • Ready to review, check, and assist</p>
       </footer>
     </div>
   );

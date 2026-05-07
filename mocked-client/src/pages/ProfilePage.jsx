@@ -1,9 +1,19 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import { api } from '../api';
-import { mockUser, mockUserDescription } from '../api/mockData';
 import { useAuth } from '../auth/AuthContext';
 import SectionCard from '../components/SectionCard';
+
+const emptyProfileForm = {
+  primary_role: '',
+  experience_level: '',
+  summary: '',
+  preferred_tasks: '',
+  avoided_tasks: '',
+  availability_notes: '',
+  agent_notes: '',
+};
 
 const splitList = (value) =>
   value
@@ -11,60 +21,50 @@ const splitList = (value) =>
     .map((item) => item.trim())
     .filter(Boolean);
 
+const applyDescription = (description) => ({
+  primary_role: description.primary_role || '',
+  experience_level: description.experience_level || '',
+  summary: description.summary || '',
+  preferred_tasks: (description.preferred_tasks || []).join(', '),
+  avoided_tasks: (description.avoided_tasks || []).join(', '),
+  availability_notes: description.availability_notes || '',
+  agent_notes: description.agent_notes || '',
+});
+
 export default function ProfilePage() {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [profile, setProfile] = useState(user || null);
   const [skills, setSkills] = useState([]);
-  const [form, setForm] = useState({
-    primary_role: '',
-    experience_level: '',
-    summary: '',
-    preferred_tasks: '',
-    avoided_tasks: '',
-    availability_notes: '',
-    agent_notes: '',
-  });
+  const [form, setForm] = useState(emptyProfileForm);
   const [status, setStatus] = useState('idle');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [isMocked, setIsMocked] = useState(false);
 
   const loadProfile = async () => {
     setStatus('loading');
     setError('');
     setNotice('');
     try {
-      const [mePayload, descriptionPayload] = await Promise.all([
-        api.me(),
-        api.getUserDescriptionMe(),
-      ]);
+      const mePayload = await api.me();
       setProfile(mePayload);
-      setSkills(descriptionPayload.skills || []);
-      setForm({
-        primary_role: descriptionPayload.primary_role || '',
-        experience_level: descriptionPayload.experience_level || '',
-        summary: descriptionPayload.summary || '',
-        preferred_tasks: (descriptionPayload.preferred_tasks || []).join(', '),
-        avoided_tasks: (descriptionPayload.avoided_tasks || []).join(', '),
-        availability_notes: descriptionPayload.availability_notes || '',
-        agent_notes: descriptionPayload.agent_notes || '',
-      });
-      setIsMocked(false);
+
+      try {
+        const descriptionPayload = await api.getUserDescriptionMe();
+        setSkills(descriptionPayload.skills || []);
+        setForm(applyDescription(descriptionPayload));
+      } catch {
+        setSkills([]);
+        setForm(emptyProfileForm);
+        setNotice('Add your profile details so Visor can assign work more accurately.');
+      }
+
       setStatus('ready');
     } catch (err) {
-      setProfile(mockUser);
-      setSkills(mockUserDescription.skills || []);
-      setForm({
-        primary_role: mockUserDescription.primary_role || '',
-        experience_level: mockUserDescription.experience_level || '',
-        summary: mockUserDescription.summary || '',
-        preferred_tasks: (mockUserDescription.preferred_tasks || []).join(', '),
-        avoided_tasks: (mockUserDescription.avoided_tasks || []).join(', '),
-        availability_notes: mockUserDescription.availability_notes || '',
-        agent_notes: mockUserDescription.agent_notes || '',
-      });
-      setIsMocked(true);
-      setStatus('mocked');
+      setProfile(null);
+      setSkills([]);
+      setForm(emptyProfileForm);
+      setStatus('error');
       setError(err.message);
     }
   };
@@ -103,12 +103,18 @@ export default function ProfilePage() {
         availability_notes: form.availability_notes,
         agent_notes: form.agent_notes,
       };
-      await api.updateUserDescriptionMe(payload);
+      const savedDescription = await api.updateUserDescriptionMe(payload);
+      setSkills(savedDescription.skills || payload.skills);
+      setForm(applyDescription(savedDescription));
       setNotice('Profile saved.');
-      setIsMocked(false);
     } catch (err) {
       setError(err.message);
     }
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate('/', { replace: true });
   };
 
   return (
@@ -118,12 +124,11 @@ export default function ProfilePage() {
           <h1>Profile</h1>
           <p>Combine GitHub user info with your user description and preferences.</p>
           <div className="inline-actions">
-            <button className="button ghost" type="button" onClick={logout}>
+            <button className="button ghost" type="button" onClick={handleLogout}>
               Logout
             </button>
           </div>
           {status === 'loading' ? <p className="subtle">Loading profile...</p> : null}
-          {isMocked ? <p className="subtle">Showing mocked data.</p> : null}
           {error ? <p className="subtle">{error}</p> : null}
           {notice ? <p className="subtle">{notice}</p> : null}
           {profile ? (

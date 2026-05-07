@@ -390,6 +390,13 @@ button {
   box-shadow: 0 16px 26px rgba(197, 123, 63, 0.3);
 }
 
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  transform: none;
+  box-shadow: none;
+}
+
 .button.secondary {
   background: var(--sage-700);
   box-shadow: 0 12px 22px rgba(75, 90, 58, 0.25);
@@ -406,6 +413,16 @@ button {
   background: var(--surface-muted);
   color: var(--ink-700);
   box-shadow: none;
+}
+
+.button.compact {
+  padding: 7px 12px;
+  font-size: 12px;
+}
+
+.button.danger {
+  border-color: rgba(198, 40, 40, 0.35);
+  color: #b3261e;
 }
 
 .pill {
@@ -452,6 +469,7 @@ button {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+  align-items: center;
 }
 
 .stat-grid {
@@ -491,6 +509,45 @@ button {
   font-weight: 600;
 }
 
+.tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.tag-button {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(94, 106, 75, 0.25);
+  border-radius: 999px;
+  padding: 5px 10px;
+  background: white;
+  color: var(--sage-700);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tag-button.active {
+  background: rgba(94, 106, 75, 0.14);
+  border-color: rgba(94, 106, 75, 0.5);
+}
+
+.detail-stack {
+  display: grid;
+  gap: 14px;
+}
+
+.meta-label {
+  color: var(--ink-500);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
 .list {
   list-style: none;
   margin: 0;
@@ -504,6 +561,20 @@ button {
   border-radius: 12px;
   background: var(--surface-muted);
   border: 1px solid rgba(153, 134, 98, 0.2);
+}
+
+.item-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.scroll-area {
+  max-height: 340px;
+  overflow-y: auto;
+  padding-right: 8px;
 }
 
 .auth-card .list li {
@@ -538,6 +609,15 @@ button {
   transform: translateX(4px);
 }
 
+.repo-item.selected {
+  border-color: var(--accent-500);
+  box-shadow: 0 0 0 2px rgba(197, 123, 63, 0.16);
+}
+
+.compact-list {
+  max-height: 220px;
+}
+
 .repo-info {
   display: grid;
   gap: 4px;
@@ -568,6 +648,35 @@ button {
   place-items: center;
   font-weight: 700;
   color: var(--ink-900);
+}
+
+.avatar.small {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  font-size: 14px;
+  flex: 0 0 auto;
+}
+
+.member-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.member-card {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+  border: 1px solid rgba(153, 134, 98, 0.2);
+}
+
+.member-card-header {
+  display: flex;
+  gap: 12px;
+  align-items: center;
 }
 
 .integration-panel {

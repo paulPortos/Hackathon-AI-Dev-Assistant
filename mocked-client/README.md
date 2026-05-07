@@ -1,6 +1,6 @@
-# Mocked Client (React)
+# Visor Client (React)
 
-This folder provides a UI scaffold for the Hackathon AI Dev Assistant server. It is built to show the backend integration points clearly while still giving the team a working front end layout.
+This folder provides the Visor frontend for project review, repository assistance, and team workflow checks.
 
 ## Quick start
 1. cd mocked-client
@@ -41,10 +41,8 @@ Vite reads these values at build time. After changing them in Vercel, redeploy t
 ## GitHub OAuth flow (backend is the source of truth)
 1. Start at /auth/github/login/ (backend, not /api).
 2. GitHub redirects to /auth/github/callback/.
-3. Callback returns JSON: { access, refresh, user }.
-4. Paste that JSON into the Login page to store tokens.
-
-For production, consider adding a backend redirect to the frontend with tokens, or serve the SPA from the same domain so it can read the callback response.
+3. The backend redirects to `/login?access=...&refresh=...`.
+4. The Login page stores the tokens and redirects to `/home`.
 
 ## Auth header
 Authorization: Bearer <access>

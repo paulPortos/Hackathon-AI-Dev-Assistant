@@ -6,59 +6,35 @@ import { GitHubIcon } from '../components/Icons';
 
 export default function LoginPage() {
   const [searchParams] = useSearchParams();
-  const { loginUrl, loginWithCallbackPayload, loginWithTokens, authError } = useAuth();
-  const [payloadText, setPayloadText] = useState('');
-  const [manualAccess, setManualAccess] = useState('');
-  const [manualRefresh, setManualRefresh] = useState('');
+  const { loginUrl, loginWithTokens, authError } = useAuth();
   const [localError, setLocalError] = useState('');
-  const [showDevOptions, setShowDevOptions] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     const access = searchParams.get('access');
     const refresh = searchParams.get('refresh');
     if (access && refresh) {
-      handleAutoLogin(access, refresh);
-    }
-  }, [searchParams]);
+      const handleAutoLogin = async () => {
+        try {
+          await loginWithTokens({ access, refresh });
+          navigate('/home', { replace: true });
+        } catch (error) {
+          setLocalError('Auto-login failed: ' + error.message);
+        }
+      };
 
-  const handleAutoLogin = async (access, refresh) => {
-    try {
-      await loginWithTokens({ access, refresh });
-      navigate('/home');
-    } catch (error) {
-      setLocalError('Auto-login failed: ' + error.message);
+      handleAutoLogin();
     }
-  };
-
-  const handlePayload = async () => {
-    setLocalError('');
-    try {
-      await loginWithCallbackPayload(payloadText);
-      navigate('/home');
-    } catch (error) {
-      setLocalError(error.message);
-    }
-  };
-
-  const handleManual = async () => {
-    setLocalError('');
-    try {
-      await loginWithTokens({ access: manualAccess, refresh: manualRefresh });
-      navigate('/home');
-    } catch (error) {
-      setLocalError(error.message);
-    }
-  };
+  }, [searchParams, loginWithTokens, navigate]);
 
   return (
     <div className="auth-grid">
       <div className="auth-hero">
         <div className="pill">Secure Authentication</div>
-        <h1>Sign in to Khaki</h1>
+        <h1>Sign in to Visor</h1>
         <p>
-          Connect your GitHub account to access your workspace, manage projects, and
-          collaborate with senior AI developers.
+          Connect GitHub to review projects, verify changes, and get focused AI
+          assistance when your team needs a second set of eyes.
         </p>
         
         <div className="auth-actions">
@@ -88,53 +64,12 @@ export default function LoginPage() {
           <div className="github-mark" style={{ margin: '0 auto 16px', width: '64px', height: '64px', borderRadius: '20px' }}>
             <GitHubIcon size={32} color="white" />
           </div>
-          <h3>Enterprise Ready</h3>
-          <p className="subtle">Fast, secure, and integrated with your existing workflow.</p>
+          <h3>Ready to Check</h3>
+          <p className="subtle">
+            Visor keeps your repositories, findings, and AI review sessions close
+            enough for fast hackathon decisions.
+          </p>
         </div>
-
-        <div className="auth-divider" style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => setShowDevOptions(!showDevOptions)}>
-          {showDevOptions ? '▼ Hide Developer Options' : '▶ Show Developer Options'}
-        </div>
-
-        {showDevOptions && (
-          <div style={{ animation: 'riseIn 0.3s ease both' }}>
-            <div className="field">
-              <label className="label">Callback JSON Payload</label>
-              <textarea
-                className="textarea"
-                value={payloadText}
-                onChange={(e) => setPayloadText(e.target.value)}
-                placeholder='{"access":"...","refresh":"..."}'
-                style={{ minHeight: '80px' }}
-              />
-              <button className="button secondary" onClick={handlePayload} style={{ marginTop: '8px', width: '100%' }}>
-                Apply JSON
-              </button>
-            </div>
-            
-            <div className="auth-divider">Manual Tokens</div>
-            
-            <div className="field">
-              <input
-                className="input"
-                value={manualAccess}
-                onChange={(e) => setManualAccess(e.target.value)}
-                placeholder="Access Token"
-              />
-            </div>
-            <div className="field">
-              <input
-                className="input"
-                value={manualRefresh}
-                onChange={(e) => setManualRefresh(e.target.value)}
-                placeholder="Refresh Token"
-              />
-            </div>
-            <button className="button ghost" onClick={handleManual} style={{ width: '100%' }}>
-              Save Tokens
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );
