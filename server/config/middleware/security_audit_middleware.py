@@ -14,6 +14,9 @@ class SecurityAuditMiddleware:
         self.suspicious_input_detector = SuspiciousInputDetector()
 
     def __call__(self, request):
+        if request.path.endswith('/health/'):
+            return self.get_response(request)
+
         started_at = time.perf_counter()
         suspicious_signals = self.suspicious_input_detector.detect(request)
 

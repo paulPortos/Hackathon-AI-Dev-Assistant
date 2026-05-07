@@ -1,6 +1,7 @@
 from django.urls import include, path
 from rest_framework_simplejwt.views import TokenRefreshView, TokenVerifyView
 
+from config.views import health_check_view
 from users.urls import auth_urlpatterns
 from scrum.views.calendar_views import CalendarRangeView, EventViewSet
 from rest_framework.routers import DefaultRouter
@@ -10,6 +11,7 @@ calendar_router.register(r'events', EventViewSet, basename='calendar-event')
 
 
 api_urlpatterns = [
+    path('health/', health_check_view, name='health-check'),
     path('agents/', include(('multi_agent.urls', 'multi_agent'), namespace='agents')),
     path('auth/tokens/refresh/', TokenRefreshView.as_view(), name='auth-token-refresh'),
     path('auth/tokens/verify/', TokenVerifyView.as_view(), name='auth-token-verify'),
